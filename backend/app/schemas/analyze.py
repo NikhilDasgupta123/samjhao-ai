@@ -5,16 +5,20 @@ class AnalyzeRequest(BaseModel):
     text: str = Field(
         ...,
         min_length=1,
-        description="Text that user wants to understand"
+        description="Content that needs to be explained",
     )
 
     language: str = Field(
         default="english",
-        description="Output language"
+        description="Output language",
     )
 
 
 class AnalyzeResponse(BaseModel):
     status: str
     language: str
-    input_text: str
+    summary: str
+    actions: list[str]
+    dates: list[str]
+    amounts: list[str]
+    warnings: list[str]
