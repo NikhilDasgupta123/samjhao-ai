@@ -3,19 +3,17 @@ AI-powered document assistant that explains PDFs, images, screenshots, and text 
 
 ## Run the backend
 
-From the repository root, create and activate a virtual environment, then install the backend dependencies:
+From the repository root, activate the Conda environment and install the backend dependencies:
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+conda activate samjhao-ai
+python -m pip install -r backend/requirements.txt
 ```
 
-Ensure `backend/.env` defines `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_MODEL`, then start the development server:
+Ensure `backend/.env` defines `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_MODEL`, then start the development server from the repository root:
 
 ```bash
-uvicorn main:app --reload
+python -m uvicorn main:app --app-dir backend --reload
 ```
 
 Open `http://127.0.0.1:8000/docs` for the API docs. The health endpoint is `http://127.0.0.1:8000/api/health`.

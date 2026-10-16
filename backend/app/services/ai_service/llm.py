@@ -18,6 +18,7 @@ def get_llm() -> ChatOpenAI:
         api_key=settings.cloudflare_api_token,
         base_url=base_url,
         temperature=0.2,
+        max_tokens=2048,
         timeout=60,
         max_retries=0,
         use_responses_api=False,
