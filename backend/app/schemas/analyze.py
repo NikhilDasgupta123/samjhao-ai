@@ -22,3 +22,4 @@ class AnalyzeResponse(BaseModel):
     dates: list[str]
     amounts: list[str]
     warnings: list[str]
+    evidence: list[str]

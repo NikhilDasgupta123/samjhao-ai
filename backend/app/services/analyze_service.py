@@ -43,4 +43,5 @@ async def analyze_text(request: AnalyzeRequest) -> dict:
         "dates": result.get("dates", []),
         "amounts": result.get("amounts", []),
         "warnings": result.get("warnings", []),
+        "evidence": result.get("evidence", []),
     }
