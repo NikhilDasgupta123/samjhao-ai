@@ -19,3 +19,15 @@ uvicorn main:app --reload
 ```
 
 Open `http://127.0.0.1:8000/docs` for the API docs. The health endpoint is `http://127.0.0.1:8000/api/health`.
+
+## Run the React frontend
+
+Keep the backend running, open a second terminal from the repository root, then run:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. The Vite dev server forwards `/api` requests to the backend at `http://127.0.0.1:8000`.
