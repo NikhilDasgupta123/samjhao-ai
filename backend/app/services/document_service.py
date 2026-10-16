@@ -1,8 +1,17 @@
-from io import BytesIO
-
-from docx import Document
 from fastapi import HTTPException, UploadFile
-from pypdf import PdfReader
+
+from app.services.document_extractors.docx import (
+    extract_document as extract_docx_document,
+)
+from app.services.document_extractors.image import (
+    extract_document as extract_image_document,
+)
+from app.services.document_extractors.pdf import (
+    extract_document as extract_pdf_document,
+)
+from app.services.document_extractors.txt import (
+    extract_document as extract_txt_document,
+)
 
 
 ALLOWED_CONTENT_TYPES = {
@@ -17,63 +26,25 @@ ALLOWED_CONTENT_TYPES = {
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
-def extract_pdf_text(content: bytes) -> str:
-    reader = PdfReader(BytesIO(content))
-
-    pages = []
-
-    for page in reader.pages:
-        text = page.extract_text()
-
-        if text:
-            pages.append(text)
-
-    return "\n\n".join(pages).strip()
-
-
-def extract_docx_text(content: bytes) -> str:
-    document = Document(BytesIO(content))
-
-    paragraphs = [
-        paragraph.text
-        for paragraph in document.paragraphs
-        if paragraph.text.strip()
-    ]
-
-    return "\n".join(paragraphs).strip()
-
-
-def extract_txt_text(content: bytes) -> str:
-    return content.decode(
-        "utf-8-sig",
-        errors="replace"
-    ).strip()
-
-
 def extract_document_text(
     content: bytes,
     content_type: str
 ) -> tuple[str | None, str]:
 
     if content_type == "application/pdf":
-        text = extract_pdf_text(content)
-
-        if not text:
-            return None, "requires_ocr_or_vision"
-
-        return text, "extracted"
+        return extract_pdf_document(content)
 
     if (
         content_type
         == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     ):
-        return extract_docx_text(content), "extracted"
+        return extract_docx_document(content)
 
     if content_type == "text/plain":
-        return extract_txt_text(content), "extracted"
+        return extract_txt_document(content)
 
     if content_type.startswith("image/"):
-        return None, "requires_vision"
+        return extract_image_document(content)
 
     return None, "unsupported"
 

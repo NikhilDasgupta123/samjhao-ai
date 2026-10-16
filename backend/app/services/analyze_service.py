@@ -1,29 +1,35 @@
 import json
 
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+
 from app.prompts.samjhao_prompt import SAMJHAO_SYSTEM_PROMPT
 from app.schemas.analyze import AnalyzeRequest
-from app.services.ai_service import (
-    AIServiceError,
-    generate_ai_response,
+from app.services.ai_service import AIServiceError, get_llm
+
+
+ANALYSIS_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", "{system_prompt}"),
+        ("human", "Output language: {language}\n\nContent:\n{text}"),
+    ]
 )
+ANALYSIS_CHAIN = ANALYSIS_PROMPT | get_llm() | StrOutputParser()
 
 
 async def analyze_text(request: AnalyzeRequest) -> dict:
-    messages = [
-        {
-            "role": "system",
-            "content": SAMJHAO_SYSTEM_PROMPT,
-        },
-        {
-            "role": "user",
-            "content": (
-                f"Output language: {request.language}\n\n"
-                f"Content:\n{request.text}"
-            ),
-        },
-    ]
-
-    ai_response = await generate_ai_response(messages)
+    try:
+        ai_response = await ANALYSIS_CHAIN.ainvoke(
+            {
+                "system_prompt": SAMJHAO_SYSTEM_PROMPT,
+                "language": request.language,
+                "text": request.text,
+            }
+        )
+    except Exception as exc:
+        raise AIServiceError(
+            f"Cloudflare AI request failed: {exc}"
+        ) from exc
 
     print("RAW AI RESPONSE:", ai_response)
 
