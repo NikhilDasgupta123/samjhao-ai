@@ -3,10 +3,15 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from app.agents.stock_agent import read_mcp_result, stock_toolset, summarize_stock
+from app.agents.stock_agent import summarize_stock
 from app.core.flow_logger import log_flow_event, new_flow_id
 from app.schemas.stock import StockAnalyzeRequest, StockAnalyzeResponse
 from app.services.ai_service import AIServiceError
+from app.services.stock_market_service import (
+    StockDataUnavailableError,
+    fetch_stock_market_data,
+    stock_toolset,
+)
 
 
 class StockAnalysisState(TypedDict, total=False):
@@ -19,37 +24,17 @@ class StockAnalysisState(TypedDict, total=False):
     brief: object
 
 
-class StockDataUnavailableError(Exception):
-    """Raised when the NSE MCP server cannot provide the requested data."""
-
-
 async def analyze_stock_node(state: StockAnalysisState) -> dict:
     symbol = state["symbol"]
     flow_id = state["flow_id"]
     try:
-        log_flow_event(flow_id, "STOCK AGENT", "PydanticAI → Cloudflare Workers AI text model")
         async with stock_toolset:
-            log_flow_event(flow_id, "MCP CONNECTION", "Local NSE stock-data server is ready")
-            log_flow_event(flow_id, "MCP TOOL CALL", f"get_nse_stock_quote(symbol={symbol})")
-            quote_response = await stock_toolset.call_tool_for_app(
-                "get_nse_stock_quote", {"symbol": symbol}
-            )
-            quote = read_mcp_result(quote_response)
-            log_flow_event(flow_id, "MCP TOOL RESULT", "Latest available NSE quote received")
-            log_flow_event(
+            log_flow_event(flow_id, "STOCK AGENT", "PydanticAI → Cloudflare Workers AI text model")
+            quote, history = await fetch_stock_market_data(
+                symbol,
+                state["history_days"],
                 flow_id,
-                "MCP TOOL CALL",
-                f"get_nse_stock_history(symbol={symbol}, days={state['history_days']})",
-            )
-            history_response = await stock_toolset.call_tool_for_app(
-                "get_nse_stock_history",
-                {"symbol": symbol, "days": state["history_days"]},
-            )
-            history = read_mcp_result(history_response)
-            log_flow_event(
-                flow_id,
-                "MCP DATA READY",
-                f"NSE quote received; {len(history.get('points', []))} history points",
+                reuse_open_session=True,
             )
             brief = await summarize_stock(
                 symbol=symbol,
@@ -59,6 +44,8 @@ async def analyze_stock_node(state: StockAnalysisState) -> dict:
             )
     except AIServiceError as exc:
         log_flow_event(flow_id, "STOCK AGENT FAILED", type(exc).__name__)
+        raise
+    except StockDataUnavailableError:
         raise
     except Exception as exc:
         log_flow_event(

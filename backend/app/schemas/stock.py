@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field, field_validator
 
 from app.mcp_servers.stock_data import normalize_symbol
@@ -24,6 +26,16 @@ class StockAnalyzeRequest(BaseModel):
         if not value:
             raise ValueError("Enter a question for the Stock Agent.")
         return value
+
+
+class StockMarketDataRequest(BaseModel):
+    symbol: str = Field(min_length=1, max_length=33, description="NSE stock symbol")
+    history_days: int = Field(default=30, ge=1, le=365)
+
+    @field_validator("symbol")
+    @classmethod
+    def validate_symbol(cls, value: str) -> str:
+        return normalize_symbol(value)
 
 
 class StockResearchBrief(BaseModel):
@@ -67,3 +79,31 @@ class StockAnalyzeResponse(BaseModel):
     history: list[StockHistoryPoint] = Field(default_factory=list)
     brief: StockResearchBrief
     disclaimer: str = "Informational research only; this is not investment advice."
+
+
+class StockMarketDataResponse(BaseModel):
+    status: str = "success"
+    symbol: str
+    retrieved_at: datetime
+    quote: StockQuote
+    history: list[StockHistoryPoint] = Field(default_factory=list)
+
+
+class MarketWatchStock(BaseModel):
+    symbol: str
+    company_name: str | None = None
+    last_price: float
+    change: float | None = None
+    percent_change: float | None = None
+    previous_close: float | None = None
+    volume: float | None = None
+    updated_at: str | None = None
+
+
+class MarketWatchResponse(BaseModel):
+    status: str = "success"
+    index: str = "NIFTY 500"
+    retrieved_at: datetime
+    rows: list[MarketWatchStock] = Field(default_factory=list)
+    source: str = "NSE via jugaad-data"
+    refresh_interval_seconds: int = 60

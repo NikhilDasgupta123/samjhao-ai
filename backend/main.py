@@ -9,7 +9,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.stocks import router as stocks_router
 from app.core.config import settings
 from app.services.ai_service import AIServiceError
-from app.workflows.stock_analysis import StockDataUnavailableError
+from app.services.stock_market_service import StockDataUnavailableError
 from auth.admin import router as admin_router
 from auth.database import initialize_auth_database
 from auth.routes import router as auth_router
