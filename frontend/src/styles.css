@@ -203,13 +203,15 @@ h1, h2, h3, p { margin-top: 0; }
 .market-watch-network-hub circle { fill: #197448; stroke: #fff; stroke-width: 6; filter: drop-shadow(0 5px 12px rgba(25, 116, 72, .19)); }
 .market-watch-network-hub text { fill: #fff; font: 700 14px Manrope, sans-serif; text-anchor: middle; }
 .market-watch-network-hub .market-watch-network-hub-count { fill: #d4ebdc; font: 400 8px "DM Mono", monospace; }
-.market-watch-network-node { cursor: pointer; outline: none; }
+.market-watch-network-node { cursor: grab; outline: none; touch-action: none; user-select: none; }
+.market-watch-network-node.dragging { cursor: grabbing; }
 .market-watch-network-node circle { fill: #f0f6f1; stroke: #6ca880; stroke-width: 2; transition: transform .16s ease, filter .16s ease, fill .16s ease; vector-effect: non-scaling-stroke; }
 .market-watch-network-node.negative circle { fill: #fbf1ef; stroke: #c77a71; }
 .market-watch-network-node.flat circle { fill: #f4f6f4; stroke: #a9b8ad; }
 .market-watch-network-node circle { transform-box: fill-box; transform-origin: center; }
 .market-watch-network-node:hover circle, .market-watch-network-node:focus-visible circle, .market-watch-network-node.active circle { filter: drop-shadow(0 4px 7px rgba(32, 74, 48, .2)); transform: scale(1.1); }
 .market-watch-network-node.active circle { stroke-width: 3; }
+.market-watch-network-node.dragging circle { filter: drop-shadow(0 7px 12px rgba(32, 74, 48, .28)); transform: scale(1.13); }
 .market-watch-network-node:focus-visible circle { stroke-width: 3; }
 .market-watch-network-symbol { fill: #315541; font: 700 9px "DM Mono", monospace; text-anchor: middle; }
 .market-watch-network-change { fill: #21824c; font: 500 8px "DM Mono", monospace; text-anchor: middle; }

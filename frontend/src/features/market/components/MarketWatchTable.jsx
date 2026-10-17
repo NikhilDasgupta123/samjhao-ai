@@ -13,6 +13,8 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
   const [viewFormat, setViewFormat] = useState("table");
   const [chartType, setChartType] = useState("line");
   const [hoveredGraphSymbol, setHoveredGraphSymbol] = useState(null);
+  const [draggingGraphSymbol, setDraggingGraphSymbol] = useState(null);
+  const [nodePositions, setNodePositions] = useState({});
   const [selectedGraphSymbol, setSelectedGraphSymbol] = useState(null);
   const [selectedGraphDetails, setSelectedGraphDetails] = useState(null);
   const [graphDetailsLoading, setGraphDetailsLoading] = useState(false);
@@ -20,6 +22,8 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
   const [hoveredTableSymbol, setHoveredTableSymbol] = useState(null);
   const [tablePopoverPosition, setTablePopoverPosition] = useState(null);
   const graphDetailsController = useRef(null);
+  const graphNodeDrag = useRef(null);
+  const suppressGraphClick = useRef(false);
   const tablePopoverTimer = useRef(null);
   const historyLoadTimer = useRef(null);
   const previousPrices = useRef(new Map());
@@ -129,10 +133,11 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
   const graphCenter = { x: 500, y: 380 };
   const graphNodes = visibleRows.map((row, index) => {
     const angle = -Math.PI / 2 + (2 * Math.PI * index) / Math.max(visibleRows.length, 1);
+    const savedPosition = nodePositions[row.symbol];
     return {
       ...row,
-      x: graphCenter.x + Math.cos(angle) * 275,
-      y: graphCenter.y + Math.sin(angle) * 275,
+      x: savedPosition?.x ?? graphCenter.x + Math.cos(angle) * 275,
+      y: savedPosition?.y ?? graphCenter.y + Math.sin(angle) * 275,
       tone: row.percent_change > 0 ? "positive" : row.percent_change < 0 ? "negative" : "flat",
     };
   });
@@ -271,6 +276,74 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
     setHoveredGraphSymbol(null);
   }
 
+  function getGraphPointerPosition(event) {
+    const svg = event.currentTarget.ownerSVGElement;
+    const screenMatrix = svg?.getScreenCTM();
+    if (!svg || !screenMatrix) return null;
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    return point.matrixTransform(screenMatrix.inverse());
+  }
+
+  function startGraphNodeDrag(event, node) {
+    if (event.button !== 0) return;
+    const point = getGraphPointerPosition(event);
+    if (!point) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    graphNodeDrag.current = {
+      symbol: node.symbol,
+      pointerId: event.pointerId,
+      offsetX: node.x - point.x,
+      offsetY: node.y - point.y,
+      startX: point.x,
+      startY: point.y,
+      moved: false,
+    };
+    setDraggingGraphSymbol(node.symbol);
+    setHoveredGraphSymbol(node.symbol);
+  }
+
+  function moveGraphNode(event, node) {
+    const drag = graphNodeDrag.current;
+    if (!drag || drag.symbol !== node.symbol || drag.pointerId !== event.pointerId) return;
+    const point = getGraphPointerPosition(event);
+    if (!point) return;
+    if (!drag.moved && Math.hypot(point.x - drag.startX, point.y - drag.startY) > 4) {
+      drag.moved = true;
+    }
+    if (!drag.moved) return;
+
+    const x = Math.max(42, Math.min(958, point.x + drag.offsetX));
+    const y = Math.max(42, Math.min(718, point.y + drag.offsetY));
+    setNodePositions((positions) => ({ ...positions, [node.symbol]: { x, y } }));
+  }
+
+  function finishGraphNodeDrag(event) {
+    const drag = graphNodeDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    graphNodeDrag.current = null;
+    setDraggingGraphSymbol(null);
+    if (drag.moved) {
+      suppressGraphClick.current = true;
+      window.setTimeout(() => { suppressGraphClick.current = false; }, 80);
+    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function handleGraphNodeClick(node, event) {
+    if (suppressGraphClick.current) {
+      suppressGraphClick.current = false;
+      event.preventDefault();
+      return;
+    }
+    openGraphNode(node);
+  }
+
   return (
     <section className="portal-card market-watch-card">
       <div className="portal-panel-heading market-watch-heading">
@@ -395,7 +468,7 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
             <span><i className="graph-legend-index" /> NIFTY 500 index</span>
             <span><i className="graph-legend-up" /> Gaining</span>
             <span><i className="graph-legend-down" /> Declining</span>
-            <span>Showing {graphNodes.length} nodes · hover for a snapshot · click for the price graph</span>
+            <span>Showing {graphNodes.length} nodes · drag to rearrange · hover for a snapshot · click for the price graph</span>
           </div>
           {graphNodes.length ? (
             <svg className="market-watch-network" viewBox="0 0 1000 760" role="group" aria-label={`NIFTY 500 connected to ${graphNodes.length} stocks on this page`}>
@@ -424,19 +497,24 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
               </g>
               {graphNodes.map((node) => (
                 <g
-                  className={`market-watch-network-node ${node.tone}${node.symbol === activeGraphSymbol ? " active" : ""}`}
+                  className={`market-watch-network-node ${node.tone}${node.symbol === activeGraphSymbol ? " active" : ""}${node.symbol === draggingGraphSymbol ? " dragging" : ""}`}
                   key={node.symbol}
                   role="button"
                   tabIndex="0"
-                  aria-label={`${node.company_name || node.symbol}, ${formatRupees(node.last_price)}, ${node.percent_change == null ? "change unavailable" : `${Number(node.percent_change).toFixed(2)} percent change`}. Click to show the price graph.`}
+                  aria-label={`${node.company_name || node.symbol}, ${formatRupees(node.last_price)}, ${node.percent_change == null ? "change unavailable" : `${Number(node.percent_change).toFixed(2)} percent change`}. Drag to reposition; click to show the price graph.`}
                   onMouseEnter={() => showGraphPopover(node)}
                   onFocus={() => showGraphPopover(node)}
+                  onPointerDown={(event) => startGraphNodeDrag(event, node)}
+                  onPointerMove={(event) => moveGraphNode(event, node)}
+                  onPointerUp={finishGraphNodeDrag}
+                  onPointerCancel={finishGraphNodeDrag}
+                  onLostPointerCapture={finishGraphNodeDrag}
                   onBlur={(event) => {
                     if (!event.currentTarget.closest(".market-watch-graph-wrap")?.contains(event.relatedTarget)) {
                       closeGraphHover();
                     }
                   }}
-                  onClick={() => openGraphNode(node)}
+                  onClick={(event) => handleGraphNodeClick(node, event)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
@@ -455,7 +533,7 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
           ) : (
             <p className="market-watch-empty-node">{isMarketWatchLoading ? "Loading NIFTY 500 quotes…" : "No matching stock found."}</p>
           )}
-          {activeGraphNode && activeGraphQuote && (
+          {activeGraphNode && activeGraphQuote && !draggingGraphSymbol && (
             <StockDetailsPopover
               stock={activeGraphNode}
               quote={activeGraphQuote}
