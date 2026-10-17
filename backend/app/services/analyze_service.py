@@ -1,53 +1,22 @@
-import json
-
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-
-from app.prompts.samjhao_prompt import SAMJHAO_SYSTEM_PROMPT
 from app.schemas.analyze import AnalyzeRequest
-from app.services.ai_service import AIServiceError, get_llm
-
-
-ANALYSIS_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        ("system", "{system_prompt}"),
-        ("human", "Output language: {language}\n\nContent:\n{text}"),
-    ]
-)
-ANALYSIS_CHAIN = ANALYSIS_PROMPT | get_llm() | StrOutputParser()
+from app.core.flow_logger import log_flow_event, new_flow_id
+from app.services.file_analysis_service import format_analysis_response
+from app.workflows.file_analysis import analyze_uploaded_file
 
 
 async def analyze_text(request: AnalyzeRequest) -> dict:
-    try:
-        ai_response = await ANALYSIS_CHAIN.ainvoke(
-            {
-                "system_prompt": SAMJHAO_SYSTEM_PROMPT,
-                "language": request.language,
-                "text": request.text,
-            }
-        )
-    except Exception as exc:
-        raise AIServiceError(
-            f"Cloudflare AI request failed: {exc}"
-        ) from exc
-
-    print("RAW AI RESPONSE:", ai_response)
-
-    try:
-        result = json.loads(ai_response)
-
-    except json.JSONDecodeError as exc:
-        raise AIServiceError(
-            f"AI returned invalid JSON: {ai_response}"
-        ) from exc
-
-    return {
-        "status": "success",
-        "language": request.language,
-        "summary": result.get("summary", ""),
-        "actions": result.get("actions", []),
-        "dates": result.get("dates", []),
-        "amounts": result.get("amounts", []),
-        "warnings": result.get("warnings", []),
-        "evidence": result.get("evidence", []),
-    }
+    flow_id = new_flow_id()
+    log_flow_event(
+        flow_id,
+        "REQUEST RECEIVED",
+        f"Endpoint: POST /api/analyze | Characters: {len(request.text):,}",
+    )
+    result = await analyze_uploaded_file(
+        content=request.text.encode("utf-8"),
+        content_type="text/plain",
+        filename="text-input.txt",
+        language=request.language,
+        flow_id=flow_id,
+    )
+    log_flow_event(flow_id, "API RESPONSE", "Structured analysis response is ready")
+    return format_analysis_response(request.language, result["analysis"])

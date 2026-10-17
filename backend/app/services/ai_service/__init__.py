@@ -1,6 +1,5 @@
-"""Public interface for AI response generation."""
+"""Shared errors for hosted AI services."""
 
 from app.services.ai_service.errors import AIServiceError
-from app.services.ai_service.llm import get_llm
 
-__all__ = ["AIServiceError", "get_llm"]
+__all__ = ["AIServiceError"]

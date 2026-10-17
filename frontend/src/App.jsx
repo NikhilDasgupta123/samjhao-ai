@@ -1,6 +1,10 @@
 import { useRef, useState } from "react";
 
-const ACCEPTED_EXTENSIONS = ["pdf", "docx", "txt"];
+const DOCUMENT_EXTENSIONS = ["pdf", "docx", "txt"];
+const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
+const ACCEPTED_EXTENSIONS = [...DOCUMENT_EXTENSIONS, ...IMAGE_EXTENSIONS];
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+const API_DOCS_URL = API_BASE_URL ? `${API_BASE_URL}/docs` : "http://127.0.0.1:8000/docs";
 
 function FileIcon({ type = "document" }) {
   return (
@@ -32,7 +36,7 @@ function ResultSection({ title, icon, items = [], tone = "" }) {
           {items.map((item, index) => <li key={`${title}-${index}`}>{item}</li>)}
         </ul>
       ) : (
-        <p className="empty-result">Nothing specific found in this document.</p>
+        <p className="empty-result">Nothing specific found in this file.</p>
       )}
     </section>
   );
@@ -95,12 +99,12 @@ function ActivityChart({ documents }) {
     <section className="portal-card insights-card" aria-labelledby="activity-chart-title">
       <div className="portal-panel-heading">
         <div>
-          <h2 id="activity-chart-title">Documents analyzed</h2>
+          <h2 id="activity-chart-title">Files analyzed</h2>
           <p>Processing activity · Last 7 days</p>
         </div>
         <span className="chart-total">{documents.length}</span>
       </div>
-      <svg className="activity-chart" viewBox="0 0 316 126" role="img" aria-label="Document analyses over the last seven days">
+      <svg className="activity-chart" viewBox="0 0 316 126" role="img" aria-label="File analyses over the last seven days">
         <defs>
           <linearGradient id="activity-fill" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#3e8b80" stopOpacity=".2" />
@@ -117,7 +121,7 @@ function ActivityChart({ documents }) {
       <div className="chart-day-labels">
         {points.map((point) => <span key={point.date.toISOString()}>{point.label}</span>)}
       </div>
-      {!documents.length && <p className="chart-empty-note">Your document activity will appear here.</p>}
+      {!documents.length && <p className="chart-empty-note">Your file analysis activity will appear here.</p>}
     </section>
   );
 }
@@ -127,8 +131,8 @@ function ActivityFeed({
   onReview,
   onUpload,
   compact = false,
-  emptyTitle = "No documents analyzed yet",
-  emptyMessage = "Upload a business document to see AI summaries, key dates, and next steps here.",
+  emptyTitle = "No files analyzed yet",
+  emptyMessage = "Upload a business document or image to see AI summaries, key dates, and next steps here.",
   showUpload = true,
 }) {
   return (
@@ -159,7 +163,7 @@ function ActivityFeed({
           <span className="empty-document-icon" aria-hidden="true">▤</span>
           <strong>{emptyTitle}</strong>
           <p>{emptyMessage}</p>
-          {showUpload && <button className="text-action" type="button" onClick={onUpload}>Upload your first document <span aria-hidden="true">→</span></button>}
+          {showUpload && <button className="text-action" type="button" onClick={onUpload}>Upload your first file <span aria-hidden="true">→</span></button>}
         </div>
       )}
     </section>
@@ -188,7 +192,7 @@ export default function App() {
 
     const extension = nextFile.name.split(".").pop()?.toLowerCase();
     if (!ACCEPTED_EXTENSIONS.includes(extension)) {
-      setError("Docu Gentlemen can analyze text-based PDF, DOCX, and TXT files. Photo and scan support is coming soon.");
+      setError("Choose a PDF, DOCX, TXT, JPG, PNG, or WEBP file.");
       setAnalysis(null);
       return false;
     }
@@ -222,14 +226,16 @@ export default function App() {
     formData.append("language", "english");
 
     try {
-      const response = await fetch("/api/documents/analyze", {
+      const extension = fileToAnalyze.name.split(".").pop()?.toLowerCase();
+      const route = IMAGE_EXTENSIONS.includes(extension) ? "images" : "documents";
+      const response = await fetch(`${API_BASE_URL}/api/${route}/analyze`, {
         method: "POST",
         body: formData,
       });
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(payload.detail || "The document could not be analyzed. Please try again.");
+        throw new Error(payload.detail || "The file could not be analyzed. Please try again.");
       }
 
       const filename = payload.filename || fileToAnalyze.name;
@@ -272,7 +278,7 @@ export default function App() {
     dates: totals.dates + (document.analysis.dates?.length || 0),
     warnings: totals.warnings + (document.analysis.warnings?.length || 0),
   }), { actions: 0, dates: 0, warnings: 0 });
-  const portalTabs = analysis ? ["Overview", "Documents", "Activity", "Analysis"] : ["Overview", "Documents", "Activity"];
+  const portalTabs = analysis ? ["Overview", "Files", "Activity", "Analysis"] : ["Overview", "Files", "Activity"];
 
   return (
     <div className={`app-shell ${hasEntered ? "portal-shell" : ""}`}>
@@ -281,7 +287,7 @@ export default function App() {
         className="file-picker-input"
         id="document-file"
         type="file"
-        accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+        accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/jpeg,image/png,image/webp"
         onChange={handleFileChange}
         tabIndex={-1}
         aria-hidden="true"
@@ -310,8 +316,8 @@ export default function App() {
           </div>
         ) : (
           <div className="topbar-right">
-            <div className="availability"><span /> AI document handling for teams</div>
-            <a className="topbar-link" href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">
+            <div className="availability"><span /> AI file analysis for teams</div>
+            <a className="topbar-link" href={API_DOCS_URL} target="_blank" rel="noreferrer">
               API docs <ArrowIcon />
             </a>
           </div>
@@ -326,21 +332,21 @@ export default function App() {
               type="search"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search documents"
-              aria-label="Search documents"
+              placeholder="Search files"
+              aria-label="Search files"
             />
           </label>
 
           <section className="portal-dashboard" aria-labelledby="portal-title">
             <div className="portal-intro-row">
               <div>
-                <div className="eyebrow"><span className="eyebrow-line" /> BUSINESS DOCUMENT WORKSPACE</div>
-                <h1 id="portal-title">Document overview</h1>
-                <p>AI-powered summaries and key details for your team.</p>
+                <div className="eyebrow"><span className="eyebrow-line" /> BUSINESS FILE WORKSPACE</div>
+                <h1 id="portal-title">File overview</h1>
+                <p>AI-powered summaries for your documents and images.</p>
               </div>
               <button className="portal-upload-button" type="button" onClick={uploadDocument} disabled={isLoading}>
                 <span aria-hidden="true">＋</span>
-                <span className="upload-button-long">{isLoading ? "Analyzing…" : "Upload document"}</span>
+                <span className="upload-button-long">{isLoading ? "Analyzing…" : "Upload file"}</span>
                 <span className="upload-button-short">{isLoading ? "Analyzing…" : "Upload"}</span>
               </button>
             </div>
@@ -374,8 +380,8 @@ export default function App() {
             {activePortalTab === "Overview" && (
               <>
                 <div className="dashboard-stats">
-                  <DashboardStat icon="▤" label="Documents reviewed" value={documents.length} detail="AI analyses completed" tone="stat-teal" />
-                  <DashboardStat icon="↗" label="Action items" value={documentTotals.actions} detail="Found in your documents" tone="stat-blue" />
+                  <DashboardStat icon="▤" label="Files reviewed" value={documents.length} detail="AI analyses completed" tone="stat-teal" />
+                  <DashboardStat icon="↗" label="Action items" value={documentTotals.actions} detail="Found in your files" tone="stat-blue" />
                   <DashboardStat icon="◷" label="Important dates" value={documentTotals.dates} detail="Dates surfaced by AI" tone="stat-gold" />
                   <DashboardStat icon="!" label="Warnings" value={documentTotals.warnings} detail="Items to review" tone="stat-slate" />
                 </div>
@@ -387,12 +393,12 @@ export default function App() {
               </>
             )}
 
-            {activePortalTab === "Documents" && (
+            {activePortalTab === "Files" && (
               <section className="portal-card document-library">
                 <div className="portal-panel-heading">
                   <div>
-                    <h2>Document library</h2>
-                    <p>{matchingDocuments.length} {matchingDocuments.length === 1 ? "document" : "documents"} in this session</p>
+                    <h2>File library</h2>
+                    <p>{matchingDocuments.length} {matchingDocuments.length === 1 ? "file" : "files"} in this session</p>
                   </div>
                 </div>
                 {matchingDocuments.length ? (
@@ -411,9 +417,9 @@ export default function App() {
                 ) : (
                   <div className="portal-empty-state">
                     <span className="empty-document-icon" aria-hidden="true">▤</span>
-                    <strong>{documents.length ? "No matching documents" : "Your library is ready"}</strong>
-                    <p>{documents.length ? "Try another search term." : "Upload a PDF, DOCX, or text file to start your document library."}</p>
-                    {!documents.length && <button className="text-action" type="button" onClick={uploadDocument}>Upload a document <span aria-hidden="true">→</span></button>}
+                    <strong>{documents.length ? "No matching files" : "Your library is ready"}</strong>
+                    <p>{documents.length ? "Try another search term." : "Upload a PDF, DOCX, TXT, JPG, PNG, or WEBP file to start your library."}</p>
+                    {!documents.length && <button className="text-action" type="button" onClick={uploadDocument}>Upload a file <span aria-hidden="true">→</span></button>}
                   </div>
                 )}
               </section>
@@ -426,7 +432,7 @@ export default function App() {
                 onUpload={uploadDocument}
                 compact
                 emptyTitle={documents.length ? "No matching activity" : undefined}
-                emptyMessage={documents.length ? "Try searching for another document." : undefined}
+                emptyMessage={documents.length ? "Try searching for another file." : undefined}
                 showUpload={!documents.length && !searchTerm}
               />
             )}
@@ -434,7 +440,7 @@ export default function App() {
               <section className="analysis-results portal-analysis" aria-labelledby="results-title" aria-live="polite">
                 <div className="results-topline">
                   <div>
-                    <div className="eyebrow"><span className="eyebrow-line" /> AI DOCUMENT ANALYSIS</div>
+                    <div className="eyebrow"><span className="eyebrow-line" /> AI FILE ANALYSIS</div>
                     <h2 id="results-title">Key information, at a glance.</h2>
                   </div>
                   <div className="analyzed-file"><FileIcon /><span>{analyzedFilename}</span></div>
@@ -442,7 +448,7 @@ export default function App() {
 
                 <article className="summary-card">
                   <div className="summary-label"><span className="summary-sparkle">✳</span> EXECUTIVE SUMMARY</div>
-                  <p>{analysis.summary || "No summary was returned for this document."}</p>
+                  <p>{analysis.summary || "No summary was returned for this file."}</p>
                 </article>
 
                 <div className="result-grid">
@@ -450,7 +456,7 @@ export default function App() {
                   <ResultSection title="Important dates" icon="◷" items={analysis.dates} />
                   <ResultSection title="Amounts" icon="$" items={analysis.amounts} />
                   <ResultSection title="Warnings" icon="!" items={analysis.warnings} tone="warning-card" />
-                  <ResultSection title="From the document" icon="“" items={analysis.evidence} tone="evidence-card" />
+                  <ResultSection title="From the file" icon="“" items={analysis.evidence} tone="evidence-card" />
                 </div>
               </section>
             )}
@@ -461,16 +467,16 @@ export default function App() {
         <main id="top" className="main-content">
           <section className="hero-grid" aria-labelledby="hero-title">
             <div className="hero-copy">
-              <div className="eyebrow"><span className="eyebrow-line" /> AI DOCUMENT HANDLING FOR TEAMS</div>
+              <div className="eyebrow"><span className="eyebrow-line" /> AI DOCUMENT AND IMAGE ANALYSIS</div>
               <h1 id="hero-title">Business docs.<br />Handled with <span className="highlight-word">AI.</span></h1>
               <p className="hero-description">
-                Give your team a clear read on contracts, policies, and reports. AI surfaces the summary, dates, amounts, actions, and key evidence.
+                Give your team a clear read on documents and images. AI surfaces the summary, dates, amounts, actions, and key evidence.
               </p>
 
               <div className="feature-list">
                 <div className="feature-item"><span className="feature-check">✓</span><span>Plain-language summaries for your team</span></div>
                 <div className="feature-item"><span className="feature-check">✓</span><span>Important dates, amounts, and actions</span></div>
-                <div className="feature-item"><span className="feature-check">✓</span><span>Key excerpts from the original document</span></div>
+                <div className="feature-item"><span className="feature-check">✓</span><span>Key excerpts from the original file</span></div>
               </div>
 
               <div className="hero-footnote">
@@ -490,7 +496,7 @@ export default function App() {
 
       <footer className="site-footer">
         <span>Docu Gentlemen</span>
-        <span>AI document handling for modern teams.</span>
+        <span>AI document and image analysis for modern teams.</span>
         <span className="footer-language">DOCUMENTS <i>·</i> AI <i>·</i> TEAMS</span>
       </footer>
     </div>

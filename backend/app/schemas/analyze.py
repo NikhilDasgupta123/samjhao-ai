@@ -1,6 +1,17 @@
 from pydantic import BaseModel, Field
 
 
+class AnalysisResult(BaseModel):
+    """Structured fields returned by the document and image agents."""
+
+    summary: str = Field(description="A simple explanation of the content")
+    actions: list[str] = Field(default_factory=list)
+    dates: list[str] = Field(default_factory=list)
+    amounts: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+
+
 class AnalyzeRequest(BaseModel):
     text: str = Field(
         ...,
