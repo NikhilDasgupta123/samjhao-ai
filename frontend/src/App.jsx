@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const DOCUMENT_EXTENSIONS = ["pdf", "docx", "txt"];
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
@@ -170,9 +170,172 @@ function ActivityFeed({
   );
 }
 
+function routeForPath(pathname) {
+  if (pathname === "/auth") return "auth";
+  if (pathname === "/workspace") return "workspace";
+  return "landing";
+}
+
+function pathForRoute(route) {
+  if (route === "auth") return "/auth";
+  if (route === "workspace") return "/workspace";
+  return "/";
+}
+
+function AuthPanel({ onAuthenticated }) {
+  const [mode, setMode] = useState("login");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [formError, setFormError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setFormError("");
+    setIsSubmitting(true);
+    const isSignUp = mode === "signup";
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/${isSignUp ? "signup" : "login"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          email,
+          password,
+          ...(isSignUp && fullName.trim() ? { full_name: fullName.trim() } : {}),
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.detail || "Could not sign in. Please try again.");
+      onAuthenticated(payload);
+    } catch (requestError) {
+      setFormError(requestError instanceof TypeError
+        ? "Could not connect to the backend. Start the backend and try again."
+        : requestError.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <main className="auth-main">
+      <section className="auth-card" aria-labelledby="auth-title">
+        <div className="eyebrow"><span className="eyebrow-line" /> BUSINESS WORKSPACE</div>
+        <h1 id="auth-title">{mode === "signup" ? "Create your account" : "Welcome back"}</h1>
+        <p className="auth-description">
+          {mode === "signup" ? "Create an account to start analyzing your team's files." : "Sign in to continue to your file workspace."}
+        </p>
+        {formError && <div className="error-message" role="alert">{formError}</div>}
+        <form className="auth-form" onSubmit={handleSubmit}>
+          {mode === "signup" && (
+            <label>
+              Name <span>Optional</span>
+              <input autoComplete="name" maxLength={120} value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Your name" />
+            </label>
+          )}
+          <label>
+            Email
+            <input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" />
+          </label>
+          <label>
+            Password
+            <input type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={8} maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" />
+          </label>
+          <button className="analyze-button auth-submit" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
+            {!isSubmitting && <ArrowIcon />}
+          </button>
+        </form>
+        <p className="auth-switch">
+          {mode === "signup" ? "Already have an account?" : "New to Docu Gentlemen?"}{" "}
+          <button type="button" onClick={() => { setMode(mode === "signup" ? "login" : "signup"); setFormError(""); }}>
+            {mode === "signup" ? "Sign in" : "Create an account"}
+          </button>
+        </p>
+      </section>
+    </main>
+  );
+}
+
+function AdminUsersPanel({ currentUser }) {
+  const [users, setUsers] = useState([]);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [updatingUserId, setUpdatingUserId] = useState(null);
+
+  async function loadUsers() {
+    setIsLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users`, { credentials: "include" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.detail || "Could not load users.");
+      setUsers(payload);
+    } catch (requestError) {
+      setError(requestError instanceof TypeError ? "Could not connect to the backend." : requestError.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => { void loadUsers(); }, []);
+
+  async function changeRole(user, role) {
+    setUpdatingUserId(user.id);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${user.id}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ role }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.detail || "Could not update this role.");
+      setUsers((currentUsers) => currentUsers.map((item) => item.id === user.id ? payload : item));
+    } catch (requestError) {
+      setError(requestError instanceof TypeError ? "Could not connect to the backend." : requestError.message);
+    } finally {
+      setUpdatingUserId(null);
+    }
+  }
+
+  return (
+    <section className="portal-card admin-users-card">
+      <div className="portal-panel-heading">
+        <div><h2>User accounts</h2><p>Manage access to the workspace</p></div>
+        <button className="activity-open" type="button" onClick={() => void loadUsers()} disabled={isLoading || updatingUserId !== null}>Refresh</button>
+      </div>
+      {error && <div className="error-message" role="alert">{error}</div>}
+      {isLoading ? <p className="admin-users-note">Loading accounts…</p> : users.length ? (
+        <div className="admin-user-list">
+          {users.map((user) => (
+            <article className="admin-user-row" key={user.id}>
+              <div className="admin-user-copy">
+                <strong>{user.full_name || user.email}</strong>
+                {user.full_name && <span>{user.email}</span>}
+              </div>
+              <span className={`role-badge role-${user.role}`}>{user.role}</span>
+              {user.id !== currentUser.id && (
+                <button className="activity-open" type="button" disabled={updatingUserId === user.id} onClick={() => void changeRole(user, user.role === "admin" ? "user" : "admin")}>
+                  {updatingUserId === user.id ? "Saving…" : user.role === "admin" ? "Make user" : "Make admin"}
+                </button>
+              )}
+            </article>
+          ))}
+        </div>
+      ) : <p className="admin-users-note">No accounts found.</p>}
+    </section>
+  );
+}
+
 export default function App() {
   const fileInputRef = useRef(null);
-  const [hasEntered, setHasEntered] = useState(false);
+  const [route, setRoute] = useState(() => routeForPath(window.location.pathname));
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
   const [activePortalTab, setActivePortalTab] = useState("Overview");
   const [searchTerm, setSearchTerm] = useState("");
   const [documents, setDocuments] = useState([]);
@@ -180,6 +343,65 @@ export default function App() {
   const [analyzedFilename, setAnalyzedFilename] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const hasEntered = authReady && route === "workspace";
+
+  function navigateTo(nextRoute, replace = false) {
+    const path = pathForRoute(nextRoute);
+    if (replace) window.history.replaceState({}, "", path);
+    else if (window.location.pathname !== path) window.history.pushState({}, "", path);
+    setRoute(nextRoute);
+  }
+
+  useEffect(() => {
+    let mounted = true;
+    const requestedRoute = routeForPath(window.location.pathname);
+    fetch(`${API_BASE_URL}/api/auth/me`, { credentials: "include" })
+      .then(async (response) => response.ok ? response.json() : null)
+      .catch(() => null)
+      .then((user) => {
+        if (!mounted) return;
+        setCurrentUser(user);
+        const nextRoute = requestedRoute === "workspace"
+          ? (user ? "workspace" : "auth")
+          : requestedRoute === "auth" && user ? "workspace" : requestedRoute;
+        if (nextRoute !== requestedRoute) window.history.replaceState({}, "", pathForRoute(nextRoute));
+        setRoute(nextRoute);
+        setAuthReady(true);
+      });
+
+    const onPopState = () => setRoute(routeForPath(window.location.pathname));
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      mounted = false;
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authReady) return;
+    if (route === "workspace" && !currentUser) navigateTo("auth", true);
+    if (route === "auth" && currentUser) navigateTo("workspace", true);
+  }, [authReady, currentUser, route]);
+
+  function handleAuthenticated(user) {
+    setCurrentUser(user);
+    setError("");
+    navigateTo("workspace");
+  }
+
+  async function handleLogout() {
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/logout`, { method: "POST", credentials: "include" });
+    } catch {
+      // Clear the local workspace even if the backend is temporarily offline.
+    }
+    setCurrentUser(null);
+    setActivePortalTab("Overview");
+    setDocuments([]);
+    setAnalysis(null);
+    setAnalyzedFilename("");
+    navigateTo("landing");
+  }
 
   function chooseFile(nextFile) {
     if (!nextFile) return false;
@@ -231,10 +453,15 @@ export default function App() {
       const response = await fetch(`${API_BASE_URL}/api/${route}/analyze`, {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        if (response.status === 401) {
+          setCurrentUser(null);
+          navigateTo("auth");
+        }
         throw new Error(payload.detail || "The file could not be analyzed. Please try again.");
       }
 
@@ -278,7 +505,10 @@ export default function App() {
     dates: totals.dates + (document.analysis.dates?.length || 0),
     warnings: totals.warnings + (document.analysis.warnings?.length || 0),
   }), { actions: 0, dates: 0, warnings: 0 });
-  const portalTabs = analysis ? ["Overview", "Files", "Activity", "Analysis"] : ["Overview", "Files", "Activity"];
+  const portalTabs = [
+    ...(analysis ? ["Overview", "Files", "Activity", "Analysis"] : ["Overview", "Files", "Activity"]),
+    ...(currentUser?.role === "admin" ? ["Users"] : []),
+  ];
 
   return (
     <div className={`app-shell ${hasEntered ? "portal-shell" : ""}`}>
@@ -296,12 +526,12 @@ export default function App() {
       <header className={`topbar ${hasEntered ? "portal-topbar" : ""}`}>
         <a
           className="brand"
-          href="#top"
+          href={hasEntered ? "/workspace" : "/"}
           aria-label="Docu Gentlemen home"
           onClick={(event) => {
             if (hasEntered) {
               event.preventDefault();
-              setHasEntered(false);
+              navigateTo("landing");
               setActivePortalTab("Overview");
             }
           }}
@@ -311,8 +541,12 @@ export default function App() {
         </a>
         {hasEntered ? (
           <div className="workspace-user">
-            <span className="workspace-avatar">DG</span>
-            <span className="workspace-user-copy"><strong>Business workspace</strong><small>AI document desk</small></span>
+            <span className="workspace-avatar">{(currentUser?.full_name || currentUser?.email || "DG").slice(0, 2).toUpperCase()}</span>
+            <span className="workspace-user-copy">
+              <strong>{currentUser?.full_name || currentUser?.email || "Business workspace"}</strong>
+              <small>{currentUser?.role === "admin" ? "Administrator" : "AI document desk"}</small>
+            </span>
+            <button className="workspace-logout" type="button" disabled={isLoading} onClick={() => void handleLogout()}>Log out</button>
           </div>
         ) : (
           <div className="topbar-right">
@@ -436,6 +670,9 @@ export default function App() {
                 showUpload={!documents.length && !searchTerm}
               />
             )}
+            {activePortalTab === "Users" && currentUser?.role === "admin" && (
+              <AdminUsersPanel currentUser={currentUser} />
+            )}
             {activePortalTab === "Analysis" && analysis && (
               <section className="analysis-results portal-analysis" aria-labelledby="results-title" aria-live="polite">
                 <div className="results-topline">
@@ -463,6 +700,8 @@ export default function App() {
             </div>
           </section>
         </main>
+      ) : route === "auth" ? (
+        <AuthPanel onAuthenticated={handleAuthenticated} />
       ) : (
         <main id="top" className="main-content">
           <section className="hero-grid" aria-labelledby="hero-title">
@@ -486,8 +725,11 @@ export default function App() {
             </div>
 
             <div className="analyzer-entry">
-              <button className="analyze-button" type="button" onClick={() => { setHasEntered(true); setError(""); }}>
-                Enter <ArrowIcon />
+              <button className="analyze-button" type="button" disabled={!authReady} onClick={() => {
+                setError("");
+                navigateTo(currentUser ? "workspace" : "auth");
+              }}>
+                {authReady ? (currentUser ? "Open workspace" : "Enter") : "Loading…"} <ArrowIcon />
               </button>
             </div>
           </section>

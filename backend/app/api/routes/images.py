@@ -1,5 +1,6 @@
 from fastapi import APIRouter, File, Form, UploadFile
 
+from auth.dependencies import CurrentUser
 from app.schemas.document import FileAnalysisResponse
 from app.services.file_analysis_service import analyze_file_upload
 
@@ -12,6 +13,7 @@ router = APIRouter(
 
 @router.post("/analyze", response_model=FileAnalysisResponse)
 async def analyze_image(
+    _user: CurrentUser,
     file: UploadFile = File(...),
     language: str = Form(default="english"),
 ):

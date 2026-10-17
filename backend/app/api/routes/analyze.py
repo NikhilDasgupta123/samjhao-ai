@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from auth.dependencies import CurrentUser
 from app.schemas.analyze import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -17,5 +18,5 @@ router = APIRouter(
     "/analyze",
     response_model=AnalyzeResponse,
 )
-async def analyze(request: AnalyzeRequest):
+async def analyze(request: AnalyzeRequest, _user: CurrentUser):
     return await analyze_text(request)
