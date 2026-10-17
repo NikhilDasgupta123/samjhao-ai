@@ -84,7 +84,7 @@ async def analyze_stock(request: StockAnalyzeRequest) -> StockAnalyzeResponse:
     log_flow_event(
         flow_id,
         "REQUEST RECEIVED",
-        f"Endpoint: POST /api/stocks/analyze | Symbol: {request.symbol}",
+        f"Endpoint: POST /internal/stocks/analyze | Symbol: {request.symbol}",
     )
     result = await get_stock_analysis_graph().ainvoke(
         {

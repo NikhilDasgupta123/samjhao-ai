@@ -1,13 +1,13 @@
 from fastapi import APIRouter
 
 from auth.dependencies import CurrentUser
+from app.ai.client import analyze_stock_with_ai_service
 from app.ai.schemas import StockAnalyzeRequest, StockAnalyzeResponse
 from app.stocks.schemas import (
     MarketWatchResponse,
     StockMarketDataRequest,
     StockMarketDataResponse,
 )
-from app.ai.workflows.stock_analysis import analyze_stock
 from app.stocks.data.market_data_service import get_nse_market_watch, get_stock_market_data
 
 
@@ -16,8 +16,8 @@ router = APIRouter(prefix="/api/stocks", tags=["Stock market"])
 
 @router.post("/analyze", response_model=StockAnalyzeResponse)
 async def analyze_stock_request(request: StockAnalyzeRequest, _user: CurrentUser):
-    """Analyze an NSE-listed stock with live/history data from the local MCP server."""
-    return await analyze_stock(request)
+    """Forward authenticated stock analysis to the separate AI service."""
+    return await analyze_stock_with_ai_service(request)
 
 
 @router.post("/market-data", response_model=StockMarketDataResponse)

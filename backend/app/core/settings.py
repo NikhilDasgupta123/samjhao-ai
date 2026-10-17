@@ -7,9 +7,11 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    cloudflare_account_id: str
-    cloudflare_api_token: str
+    cloudflare_account_id: str | None = None
+    cloudflare_api_token: str | None = None
     cloudflare_model: str = "@cf/meta/llama-3.1-8b-instruct"
+    ai_service_url: str = "http://127.0.0.1:8001"
+    ai_service_timeout_seconds: int = Field(default=180, ge=1, le=600)
     database_url: str = "postgresql+psycopg://samjhao:samjhao_local_dev@127.0.0.1:5432/samjhao"
     auth_cookie_name: str = "samjhao_session"
     auth_cookie_secure: bool = False

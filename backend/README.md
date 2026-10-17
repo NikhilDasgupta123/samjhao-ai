@@ -1,23 +1,25 @@
 # Backend map
 
-[Detailed LangGraph + Stock Agent flow diagram](../docs/langgraph-stock-agent-flow.pdf)
+[LangGraph + Stock Agent flow diagram](../docs/langgraph-stock-agent-flow.pdf)
 
 ```text
 backend/
-|-- main.py                         FastAPI app and router registration
+|-- main.py                         Public API service (port 8000)
+|-- ai_service/                     Separate internal AI HTTP service (port 8001)
+|   |-- main.py                     AI service app + error responses
+|   |-- routes.py                   POST /internal/stocks/analyze
 |-- requirements.txt                Python dependencies
 |-- auth/                            Login, sessions, roles, admin users
-|   |-- routes.py                    Signup, login, current user, logout
-|   |-- admin.py                     Admin-only user routes
+|   |-- routes.py | admin.py         Auth and admin HTTP routes
 |   |-- services.py                  Account and session operations
-|   |-- dependencies.py              CurrentUser and AdminUser access checks
+|   |-- dependencies.py              CurrentUser and AdminUser checks
 |   |-- models.py | schemas.py        Database models and API shapes
-|   |-- security.py | database.py     Password/session security and PostgreSQL
+|   |-- security.py | database.py     Password/session security + PostgreSQL
 |   |-- cli.py                       Create the first admin account
 |-- app/
     |-- api/routes/
     |   |-- health.py                GET /api/health
-    |   |-- stock_routes.py          Stock HTTP endpoints
+    |   |-- stock_routes.py          Public stock HTTP endpoints
     |-- core/
     |   |-- settings.py              Environment and .env configuration
     |   |-- flow_logger.py           Request IDs and terminal flow boxes
@@ -28,50 +30,61 @@ backend/
     |   |-- data/
     |       |-- market_data_service.py Quote/history calls and cache
     |       |-- nse_mcp_server.py     NSE MCP tools using jugaad-data
-    |-- ai/                           AI application logic
-        |-- schemas.py                 Analysis request, brief and response models
-        |-- errors.py                  AI provider errors
-        |-- workflows/
-        |   |-- stock_analysis.py     LangGraph flow and request state
-        |-- agents/
-        |   |-- stock_agent.py        PydanticAI Stock Agent
-        |-- models/
-        |   |-- cloudflare.py         Cloudflare Workers AI connection
-        |-- prompts/
-            |-- stock_analysis.py     Stock Agent instructions
+    |-- ai/                           AI logic and service client
+        |-- client.py                 Public API -> AI service HTTP client
+        |-- schemas.py | errors.py    AI request/response types and errors
+        |-- workflows/stock_analysis.py LangGraph flow and state
+        |-- agents/stock_agent.py     PydanticAI Stock Agent
+        |-- models/cloudflare.py      Cloudflare Workers AI connection
+        |-- prompts/stock_analysis.py Stock Agent instructions
 ```
 
 ```text
+PUBLIC API | port 8000
 POST /api/stocks/analyze
-    -> app/api/routes/stock_routes.py
+    -> auth + request validation
+    -> app/ai/client.py
+    -> HTTP POST http://127.0.0.1:8001/internal/stocks/analyze
+
+AI SERVICE | port 8001
+    -> ai_service/routes.py
     -> app/ai/workflows/stock_analysis.py
     -> app/stocks/data/market_data_service.py
-    -> app/stocks/data/nse_mcp_server.py
-    -> jugaad-data / NSE
-    -> app/ai/agents/stock_agent.py
-    -> app/ai/models/cloudflare.py
-    -> StockResearchBrief
+    -> app/stocks/data/nse_mcp_server.py -> jugaad-data / NSE
+    -> app/ai/agents/stock_agent.py -> app/ai/models/cloudflare.py
+    -> StockResearchBrief -> public API response
 ```
 
 ```text
 GET  /api/stocks/market-watch
 POST /api/stocks/market-data
-    -> stock_routes.py
-    -> stocks/data/market_data_service.py
-    -> stocks/data/nse_mcp_server.py
-    -> quote / history response
+    -> public API port 8000
+    -> app/stocks/data/market_data_service.py
+    -> local NSE MCP tools
 ```
 
-```text
-Request path      -> app/api/routes/
-Login and roles   -> auth/
-Environment       -> app/core/settings.py
-NSE tools         -> app/stocks/data/nse_mcp_server.py
-Quote and cache   -> app/stocks/data/market_data_service.py
-NSE schemas/errors -> app/stocks/schemas.py | app/stocks/errors.py
-AI workflow       -> app/ai/workflows/stock_analysis.py
-AI agent          -> app/ai/agents/stock_agent.py
-AI schemas/errors -> app/ai/schemas.py | app/ai/errors.py
-Prompt            -> app/ai/prompts/stock_analysis.py
-Cloudflare model  -> app/ai/models/cloudflare.py
+```bash
+# Terminal 1: public API
+cd backend
+python -m uvicorn main:app --reload --port 8000
+
+# Terminal 2: AI service
+cd backend
+python -m uvicorn ai_service.main:app --reload --host 127.0.0.1 --port 8001
 ```
+
+The analysis request waits for the AI result. LangGraph, NSE fetches, and Cloudflare calls run in the separate AI process, so that work does not execute inside the public API process. The API uses an async HTTP call while it waits, so it can continue serving other requests. Terminal 2 shows the LangGraph routing boxes. Both processes still share the machine, so CPU or memory pressure can affect both. For an immediate response while analysis continues in the background, add a job queue and return a job ID (202 Accepted).
+
+```text
+Request path       -> app/api/routes/
+Public API -> AI   -> app/ai/client.py
+AI HTTP service    -> ai_service/
+Login and roles    -> auth/
+NSE tools          -> app/stocks/data/nse_mcp_server.py
+Quote and cache    -> app/stocks/data/market_data_service.py
+AI workflow       -> app/ai/workflows/stock_analysis.py
+AI agent           -> app/ai/agents/stock_agent.py
+Cloudflare model   -> app/ai/models/cloudflare.py
+```
+
+For a remote or container deployment, put the AI service on a private network and configure `AI_SERVICE_URL` to its private address; the local command binds it to `127.0.0.1` so it is reachable only from the same machine.
