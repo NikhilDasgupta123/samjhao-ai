@@ -1,7 +1,11 @@
 from fastapi import APIRouter
 
 from auth.dependencies import CurrentUser
-from app.ai.client import analyze_stock_with_ai_service
+from app.ai.catalyst_schemas import StockCatalystRequest, StockCatalystResponse
+from app.ai.client import (
+    analyze_stock_with_ai_service,
+    research_stock_catalysts_with_ai_service,
+)
 from app.ai.schemas import StockAnalyzeRequest, StockAnalyzeResponse
 from app.stocks.schemas import (
     MarketWatchResponse,
@@ -18,6 +22,12 @@ router = APIRouter(prefix="/api/stocks", tags=["Stock market"])
 async def analyze_stock_request(request: StockAnalyzeRequest, _user: CurrentUser):
     """Forward authenticated stock analysis to the separate AI service."""
     return await analyze_stock_with_ai_service(request)
+
+
+@router.post("/catalysts", response_model=StockCatalystResponse)
+async def stock_catalysts_request(request: StockCatalystRequest, _user: CurrentUser):
+    """Search recent stock-related article and video sources through the AI service."""
+    return await research_stock_catalysts_with_ai_service(request)
 
 
 @router.post("/market-data", response_model=StockMarketDataResponse)

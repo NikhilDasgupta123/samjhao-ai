@@ -1,0 +1,168 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [7 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+6 0 obj
+<< /Length 6403 >>
+stream
+0.100 0.430 0.290 rg
+30 558 94 3 re f
+BT /F2 8.00 Tf 0.100 0.430 0.290 rg 1 0 0 1 30.00 573.00 Tm (MARKETBRIEF AI) Tj ET
+BT /F2 14.00 Tf 0.100 0.200 0.160 rg 1 0 0 1 126.00 570.00 Tm (LANGGRAPH | MARKET CATALYST AGENT) Tj ET
+0.760 0.850 0.790 RG 0.7 w 30 550 m 812 550 l S
+BT /F1 8.00 Tf 0.400 0.490 0.440 rg 1 0 0 1 740.00 573.00 Tm (1 / 1) Tj ET
+0.760 0.850 0.790 RG 0.6 w 30 25 m 812 25 l S
+BT /F2 7.50 Tf 0.400 0.490 0.440 rg 1 0 0 1 30.00 12.00 Tm (BACKEND) Tj ET
+BT /F1 7.20 Tf 0.400 0.490 0.440 rg 1 0 0 1 702.00 12.00 Tm (MARKETBRIEF AI  |  ARCHITECTURE) Tj ET
+0.920 0.960 0.990 rg
+28.00 432.00 174.00 80.00 re f
+0.760 0.850 0.790 RG
+0.9 w
+28.00 432.00 174.00 80.00 re S
+BT /F2 8.70 Tf 0.100 0.430 0.290 rg 1 0 0 1 37.00 495.00 Tm (Stock details UI) Tj ET
+0.760 0.850 0.790 RG 0.5 w 37.00 488.00 m 193.00 488.00 l S
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 37.00 475.00 Tm (selected company) Tj ET
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 37.00 465.00 Tm (symbol + company name) Tj ET
+0.930 0.970 0.940 rg
+229.00 432.00 174.00 80.00 re f
+0.760 0.850 0.790 RG
+0.9 w
+229.00 432.00 174.00 80.00 re S
+BT /F2 8.70 Tf 0.100 0.430 0.290 rg 1 0 0 1 238.00 495.00 Tm (Public API :8000) Tj ET
+0.760 0.850 0.790 RG 0.5 w 238.00 488.00 m 394.00 488.00 l S
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 238.00 475.00 Tm (POST /api/stocks/catalysts) Tj ET
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 238.00 465.00 Tm (session + validation) Tj ET
+1.000 1.000 1.000 rg
+430.00 432.00 174.00 80.00 re f
+0.760 0.850 0.790 RG
+0.9 w
+430.00 432.00 174.00 80.00 re S
+BT /F2 8.70 Tf 0.100 0.430 0.290 rg 1 0 0 1 439.00 495.00 Tm (AI HTTP client) Tj ET
+0.760 0.850 0.790 RG 0.5 w 439.00 488.00 m 595.00 488.00 l S
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 439.00 475.00 Tm (async request) Tj ET
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 439.00 465.00 Tm (app/ai/client.py) Tj ET
+0.990 0.970 0.890 rg
+631.00 432.00 174.00 80.00 re f
+0.760 0.850 0.790 RG
+0.9 w
+631.00 432.00 174.00 80.00 re S
+BT /F2 8.70 Tf 0.100 0.430 0.290 rg 1 0 0 1 640.00 495.00 Tm (AI service :8001) Tj ET
+0.760 0.850 0.790 RG 0.5 w 640.00 488.00 m 796.00 488.00 l S
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 640.00 475.00 Tm (internal route) Tj ET
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 640.00 465.00 Tm (LangGraph workflow) Tj ET
+0.100 0.430 0.290 RG 1.15 w 202.00 472.00 m 229.00 472.00 l S
+0.100 0.430 0.290 rg
+229.00 472.00 m 222.00 475.10 l 222.00 468.90 l h f
+0.100 0.430 0.290 RG 1.15 w 403.00 472.00 m 430.00 472.00 l S
+0.100 0.430 0.290 rg
+430.00 472.00 m 423.00 475.10 l 423.00 468.90 l h f
+0.100 0.430 0.290 RG 1.15 w 604.00 472.00 m 631.00 472.00 l S
+0.100 0.430 0.290 rg
+631.00 472.00 m 624.00 475.10 l 624.00 468.90 l h f
+0.920 0.960 0.990 rg
+55.00 274.00 310.00 107.00 re f
+0.760 0.850 0.790 RG
+0.9 w
+55.00 274.00 310.00 107.00 re S
+BT /F2 8.80 Tf 0.100 0.430 0.290 rg 1 0 0 1 64.00 364.00 Tm (GDELT | NEWS + BLOG LINKS) Tj ET
+0.760 0.850 0.790 RG 0.5 w 64.00 357.00 m 356.00 357.00 l S
+BT /F1 8.00 Tf 0.190 0.280 0.230 rg 1 0 0 1 64.00 344.00 Tm (Free, no-key article search API.) Tj ET
+BT /F1 8.00 Tf 0.190 0.280 0.230 rg 1 0 0 1 64.00 333.80 Tm (Company coverage from the past 7 days.) Tj ET
+BT /F1 8.00 Tf 0.190 0.280 0.230 rg 1 0 0 1 64.00 323.60 Tm (Headline, publisher, date, and original URL.) Tj ET
+0.930 0.970 0.940 rg
+477.00 274.00 310.00 107.00 re f
+0.760 0.850 0.790 RG
+0.9 w
+477.00 274.00 310.00 107.00 re S
+BT /F2 8.80 Tf 0.100 0.430 0.290 rg 1 0 0 1 486.00 364.00 Tm (yt-dlp | YOUTUBE VIDEO METADATA) Tj ET
+0.760 0.850 0.790 RG 0.5 w 486.00 357.00 m 778.00 357.00 l S
+BT /F1 8.00 Tf 0.190 0.280 0.230 rg 1 0 0 1 486.00 344.00 Tm (Open-source search; no API key.) Tj ET
+BT /F1 8.00 Tf 0.190 0.280 0.230 rg 1 0 0 1 486.00 333.80 Tm (Recent titles, channel, date, and video URL.) Tj ET
+BT /F1 8.00 Tf 0.190 0.280 0.230 rg 1 0 0 1 486.00 323.60 Tm (Metadata only: no media download.) Tj ET
+0.100 0.430 0.290 RG 1.05 w 718.00 432.00 m
+718.00 405.00 l
+210.00 405.00 l
+S
+0.100 0.430 0.290 RG 1.05 w 210.00 405.00 m
+632.00 405.00 l
+S
+0.100 0.430 0.290 RG 1.15 w 210.00 405.00 m 210.00 381.00 l S
+0.100 0.430 0.290 rg
+210.00 381.00 m 213.10 388.00 l 206.90 388.00 l h f
+0.100 0.430 0.290 RG 1.15 w 632.00 405.00 m 632.00 381.00 l S
+0.100 0.430 0.290 rg
+632.00 381.00 m 635.10 388.00 l 628.90 388.00 l h f
+0.990 0.970 0.890 rg
+105.00 126.00 280.00 92.00 re f
+0.760 0.850 0.790 RG
+0.9 w
+105.00 126.00 280.00 92.00 re S
+BT /F2 8.80 Tf 0.100 0.430 0.290 rg 1 0 0 1 114.00 201.00 Tm (PydanticAI Catalyst Agent) Tj ET
+0.760 0.850 0.790 RG 0.5 w 114.00 194.00 m 376.00 194.00 l S
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 114.00 181.00 Tm (Cloudflare summarizes source metadata.) Tj ET
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 114.00 171.00 Tm (Groups possible factors; cites source IDs.) Tj ET
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 114.00 161.00 Tm (Does not claim sources caused price changes.) Tj ET
+1.000 1.000 1.000 rg
+457.00 126.00 280.00 92.00 re f
+0.760 0.850 0.790 RG
+0.9 w
+457.00 126.00 280.00 92.00 re S
+BT /F2 8.80 Tf 0.100 0.430 0.290 rg 1 0 0 1 466.00 201.00 Tm (Stock details response) Tj ET
+0.760 0.850 0.790 RG 0.5 w 466.00 194.00 m 728.00 194.00 l S
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 466.00 181.00 Tm (Summary + possible factors.) Tj ET
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 466.00 171.00 Tm (News & blogs and YouTube tabs.) Tj ET
+BT /F1 7.80 Tf 0.190 0.280 0.230 rg 1 0 0 1 466.00 161.00 Tm (Original links for evidence review.) Tj ET
+0.100 0.430 0.290 RG 1.05 w 210.00 274.00 m
+210.00 243.00 l
+245.00 243.00 l
+245.00 218.00 l
+S
+0.100 0.430 0.290 RG 1.05 w 632.00 274.00 m
+632.00 243.00 l
+245.00 243.00 l
+S
+0.100 0.430 0.290 RG 1.15 w 385.00 172.00 m 457.00 172.00 l S
+0.100 0.430 0.290 rg
+457.00 172.00 m 450.00 175.10 l 450.00 168.90 l h f
+0.930 0.970 0.940 rg
+82.00 35.00 678.00 65.00 re f
+0.760 0.850 0.790 RG
+0.9 w
+82.00 35.00 678.00 65.00 re S
+BT /F2 8.70 Tf 0.100 0.430 0.290 rg 1 0 0 1 91.00 83.00 Tm (On-demand per-company flow) Tj ET
+0.760 0.850 0.790 RG 0.5 w 91.00 76.00 m 751.00 76.00 l S
+BT /F1 7.70 Tf 0.190 0.280 0.230 rg 1 0 0 1 91.00 63.00 Tm (Search starts when a user opens a company detail page, not for all 500 stocks at once. AI service caches results for 15 minutes.) Tj ET
+BT /F1 7.70 Tf 0.190 0.280 0.230 rg 1 0 0 1 91.00 53.10 Tm (The agent receives headlines and available video descriptions, not full article text or video transcripts.) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 6 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000191 00000 n 
+0000000266 00000 n 
+0000000334 00000 n 
+0000006788 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+6934
+%%EOF

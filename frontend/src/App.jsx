@@ -309,7 +309,9 @@ export default function App() {
             {activePortalTab === "Users" && currentUser?.role === "admin" && (
               <AdminUsersPanel currentUser={currentUser} />
             )}
-            {activePortalTab === "Details" && stockDetails && <StockMarketDetails data={stockDetails} />}
+            {activePortalTab === "Details" && stockDetails && (
+              <StockMarketDetails data={stockDetails} onUnauthorized={handleMarketWatchUnauthorized} />
+            )}
             </div>
           </section>
         </main>

@@ -12,3 +12,4 @@ pydantic-ai-slim[mcp,openai]
 fastmcp[server]
 jugaad-data
 pandas
+yt-dlp[default]

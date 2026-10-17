@@ -1,13 +1,14 @@
 # Backend map
 
 [LangGraph + Stock Agent flow diagram](../docs/langgraph-stock-agent-flow.pdf)
+[Market Catalyst Agent flow diagram](../docs/langgraph-catalyst-agent-flow.pdf)
 
 ```text
 backend/
 |-- main.py                         Public API service (port 8000)
 |-- ai_service/                     Separate internal AI HTTP service (port 8001)
 |   |-- main.py                     AI service app + error responses
-|   |-- routes.py                   POST /internal/stocks/analyze
+|   |-- routes.py                   Analysis + stock catalyst endpoints
 |-- requirements.txt                Python dependencies
 |-- auth/                            Login, sessions, roles, admin users
 |   |-- routes.py | admin.py         Auth and admin HTTP routes
@@ -32,11 +33,15 @@ backend/
     |       |-- nse_mcp_server.py     NSE MCP tools using jugaad-data
     |-- ai/                           AI logic and service client
         |-- client.py                 Public API -> AI service HTTP client
-        |-- schemas.py | errors.py    AI request/response types and errors
+        |-- schemas.py | errors.py    Stock analysis types and AI errors
+        |-- catalyst_schemas.py       Catalyst source, summary and response models
+        |-- sources/                  GDELT article + yt-dlp YouTube search
         |-- workflows/stock_analysis.py LangGraph flow and state
+        |-- workflows/stock_catalysts.py Catalyst search + summary LangGraph
         |-- agents/stock_agent.py     PydanticAI Stock Agent
+        |-- agents/catalyst_agent.py  PydanticAI Market Catalyst Agent
         |-- models/cloudflare.py      Cloudflare Workers AI connection
-        |-- prompts/stock_analysis.py Stock Agent instructions
+        |-- prompts/                    Agent instructions
 ```
 
 ```text
@@ -53,6 +58,13 @@ AI SERVICE | port 8001
     -> app/stocks/data/nse_mcp_server.py -> jugaad-data / NSE
     -> app/ai/agents/stock_agent.py -> app/ai/models/cloudflare.py
     -> StockResearchBrief -> public API response
+
+POST /api/stocks/catalysts
+    -> API forwards to POST /internal/stocks/catalysts
+    -> app/ai/workflows/stock_catalysts.py
+    -> GDELT news + yt-dlp YouTube metadata (in parallel)
+    -> Market Catalyst Agent summarizes source titles with source IDs
+    -> source links + possible factors -> frontend stock details
 ```
 
 ```text
@@ -74,6 +86,10 @@ python -m uvicorn ai_service.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
 The analysis request waits for the AI result. LangGraph, NSE fetches, and Cloudflare calls run in the separate AI process, so that work does not execute inside the public API process. The API uses an async HTTP call while it waits, so it can continue serving other requests. Terminal 2 shows the LangGraph routing boxes. Both processes still share the machine, so CPU or memory pressure can affect both. For an immediate response while analysis continues in the background, add a job queue and return a job ID (202 Accepted).
+
+Catalyst searches run only when a user opens a company's full details, not for all 500 companies at once. Results are cached in the AI process for 15 minutes. News search covers the past 7 days; YouTube results are limited to recent videos from the past 30 days. The summary is based on source metadata (headlines/video titles and available descriptions); the UI links to the original sources and labels factors as possible coverage, not confirmed causes of price changes.
+
+The YouTube source uses `yt-dlp[default]`, including its EJS support. For current YouTube extraction, install a supported JavaScript runtime; the backend enables Node automatically when Node 22 or newer is on `PATH`, otherwise yt-dlp can use Deno if installed. If video search is unavailable, the news results still load.
 
 ```text
 Request path       -> app/api/routes/

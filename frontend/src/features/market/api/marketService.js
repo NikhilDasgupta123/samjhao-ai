@@ -12,3 +12,12 @@ export function getStockMarketData({ symbol, historyDays = 30, signal }) {
     signal,
   });
 }
+
+export function getStockCatalysts({ symbol, companyName, refresh = false, signal }) {
+  return requestJson("/api/stocks/catalysts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ symbol, company_name: companyName, refresh }),
+    signal,
+  });
+}

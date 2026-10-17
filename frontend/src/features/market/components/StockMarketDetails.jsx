@@ -1,8 +1,9 @@
 import { formatIndiaDateTime } from "../../../lib/formatters.js";
 import { StockDetailsTable } from "./StockDetailsTable.jsx";
 import { StockPriceChart } from "./StockPriceChart.jsx";
+import { StockCatalystPanel } from "./StockCatalystPanel.jsx";
 
-export function StockMarketDetails({ data }) {
+export function StockMarketDetails({ data, onUnauthorized }) {
   return (
     <section className="market-details-view" aria-labelledby="stock-details-title" aria-live="polite">
       <div className="results-topline">
@@ -28,6 +29,7 @@ export function StockMarketDetails({ data }) {
         </div>
         <StockPriceChart history={data.history} />
       </section>
+      <StockCatalystPanel data={data} onUnauthorized={onUnauthorized} />
       <p className="analysis-disclaimer">Market prices and history reflect the latest data returned by the source and may not update while the market is closed.</p>
     </section>
   );
