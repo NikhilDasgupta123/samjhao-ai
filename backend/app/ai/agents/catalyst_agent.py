@@ -23,9 +23,9 @@ async def summarize_stock_catalysts(
     symbol: str,
     company_name: str | None,
     news: list[CatalystSource],
-    videos: list[CatalystSource],
+    web: list[CatalystSource],
 ) -> CatalystBrief:
-    sources = [source.model_dump(mode="json") for source in [*news, *videos]]
+    sources = [source.model_dump(mode="json") for source in [*news, *web]]
     prompt = (
         f"NSE symbol: {symbol}\nCompany: {company_name or 'unknown'}\n\n"
         "Available source metadata (JSON):\n"
@@ -33,7 +33,7 @@ async def summarize_stock_catalysts(
     )
     result = await get_catalyst_agent().run(prompt)
 
-    valid_ids = {source.id for source in [*news, *videos]}
+    valid_ids = {source.id for source in [*news, *web]}
     factors = [
         factor.model_copy(update={"source_ids": [item for item in factor.source_ids if item in valid_ids]})
         for factor in result.output.factors

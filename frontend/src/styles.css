@@ -1004,10 +1004,7 @@ body {
 .catalyst-source-copy > a:hover { color: #18834f; text-decoration: underline; }
 .catalyst-source-copy > span { display: block; margin-top: 4px; color: #8a968e; font-size: 9px; }
 .catalyst-source-copy > p { margin: 6px 0 0; color: #748178; font-size: 9px; line-height: 1.5; }
-.catalyst-video-thumbnail { position: relative; display: block; flex: none; width: 92px; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 6px; background: #f8e9e7; }
-.catalyst-video-thumbnail img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.catalyst-video-thumbnail span { position: absolute; inset: 50% auto auto 50%; display: grid; width: 25px; height: 19px; place-items: center; transform: translate(-50%, -50%); border-radius: 5px; background: rgba(176, 54, 46, .9); color: #fff; font-size: 8px; }
-.catalyst-video-mark { display: grid; flex: none; width: 26px; height: 26px; place-items: center; border-radius: 7px; background: #fbefed; color: #b95148; font-size: 10px; }
+.catalyst-web-mark { display: grid; flex: none; width: 26px; height: 26px; place-items: center; border: 1px solid #dcebe1; border-radius: 7px; background: #f4faf6; color: #367b53; font-size: 13px; }
 .catalyst-empty-sources { padding: 11px 2px; }
 .catalyst-summary-fallback { margin: 11px 0 0; color: #8b7d49; }
 

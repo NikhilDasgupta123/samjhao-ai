@@ -24,13 +24,12 @@ class StockCatalystRequest(BaseModel):
 
 class CatalystSource(BaseModel):
     id: str
-    kind: Literal["news", "video"]
+    kind: Literal["news", "web"]
     title: str
     url: AnyHttpUrl
     publisher: str | None = None
     published_at: str | None = None
     snippet: str | None = None
-    thumbnail_url: AnyHttpUrl | None = None
 
 
 class CatalystFactor(BaseModel):
@@ -55,9 +54,9 @@ class StockCatalystResponse(BaseModel):
     company_name: str | None = None
     retrieved_at: str
     news: list[CatalystSource] = Field(default_factory=list)
-    videos: list[CatalystSource] = Field(default_factory=list)
+    web: list[CatalystSource] = Field(default_factory=list)
     brief: CatalystBrief
     news_error: str | None = None
-    videos_error: str | None = None
+    web_error: str | None = None
     summary_error: str | None = None
     cached: bool = False

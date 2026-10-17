@@ -12,4 +12,4 @@ pydantic-ai-slim[mcp,openai]
 fastmcp[server]
 jugaad-data
 pandas
-yt-dlp[default]
+ddgs>=9.0,<10.0
