@@ -1,5 +1,5 @@
-# Docu Gentlemen
-AI analysis for business documents and images using Cloudflare Workers AI. PDF, DOCX, and TXT files go through text extraction; JPG, PNG, and WEBP files go through a separate vision route. LangGraph routes each request to a PydanticAI agent, which returns a validated analysis schema.
+# MarketBrief AI
+Stock research briefs from company filings, earnings reports, and chart screenshots using Cloudflare Workers AI. PDF, DOCX, and TXT files go through text extraction; JPG, PNG, and WEBP files go through a separate vision route. LangGraph routes each request to a PydanticAI agent, which returns a validated analysis schema with a company brief, catalysts, key dates, reported figures, risks, and source evidence. The analysis is based on uploaded material and does not provide live prices or buy/sell advice.
 
 ## Cloudflare model setup
 
@@ -65,11 +65,11 @@ cd backend
 python -m auth.cli create-admin
 ```
 
-The command prompts for an email and password. Public sign-up always creates a `user`; there is no public admin selector. An administrator can list accounts and change other users' roles from the workspace's **Users** tab. The last remaining admin cannot be demoted.
+The command prompts for an email, username, and password. Public sign-up always creates a `user`; there is no public admin selector. An administrator can create user accounts, list accounts, and change roles from the workspace's **Users** tab. The last remaining admin cannot be demoted.
 
 Clicking **Enter** opens `/auth` when signed out and `/workspace` when a valid session exists. Sign-in and sign-up create an HTTP-only session cookie. The API stores only a hash of each random session token in PostgreSQL. Logout deletes the active server-side session. The document, image, and text-analysis endpoints require a signed-in user; `/api/health` stays public.
 
-Authentication endpoints:
+Sign-in accepts either the account email or username with the same password. Authentication endpoints:
 
 | Method | Endpoint | Access |
 | --- | --- | --- |
@@ -78,9 +78,10 @@ Authentication endpoints:
 | GET | `/api/auth/me` | Signed in |
 | POST | `/api/auth/logout` | Signed in |
 | GET | `/api/admin/users` | Admin |
+| POST | `/api/admin/users` | Admin; creates a user account |
 | PATCH | `/api/admin/users/{user_id}/role` | Admin |
 
-For a separate frontend and backend deployment, use a persistent PostgreSQL `DATABASE_URL`, set `AUTH_COOKIE_SECURE=true` and `AUTH_COOKIE_SAMESITE=none`, and list the exact frontend origin in `CORS_ORIGINS`. For same-site local development, the example uses an insecure local cookie with `SameSite=Lax`. The first version creates tables with SQLAlchemy `create_all`; add versioned migrations before changing deployed schemas.
+For a separate frontend and backend deployment, use a persistent PostgreSQL `DATABASE_URL`, set `AUTH_COOKIE_SECURE=true` and `AUTH_COOKIE_SAMESITE=none`, and list the exact frontend origin in `CORS_ORIGINS`. For same-site local development, the example uses an insecure local cookie with `SameSite=Lax`. Initial tables are created with SQLAlchemy `create_all`; startup also backfills a username for accounts created before the username field was added. Use versioned migrations for future schema changes.
 
 ### Backend layout
 
@@ -106,7 +107,7 @@ backend/
     └── workflows/           # LangGraph file type routing and analysis flow
 ```
 
-The upload endpoints are `POST /api/documents/analyze` for PDF/DOCX/TXT and `POST /api/images/analyze` for JPG/PNG/WEBP. `POST /api/analyze` accepts plain text.
+The sign-up form requires a unique username. The **Users** tab shows Name, Email, Username, role, and join date/time converted to the browser's local timezone in a responsive Bootstrap table. The upload endpoints are `POST /api/documents/analyze` for PDF/DOCX/TXT and `POST /api/images/analyze` for JPG/PNG/WEBP. `POST /api/analyze` accepts plain text.
 
 ### Analysis flow
 

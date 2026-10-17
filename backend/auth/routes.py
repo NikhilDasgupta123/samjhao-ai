@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from app.core.config import settings
 from auth.dependencies import CurrentUser, DatabaseSession
-from auth.schemas import AuthCredentials, SignUpRequest, UserResponse
-from auth.services import DuplicateEmailError, authenticate_user, register_user, revoke_session
+from auth.schemas import LoginRequest, SignUpRequest, UserResponse
+from auth.services import DuplicateAccountError, authenticate_user, register_user, revoke_session
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -24,17 +24,18 @@ def _set_session_cookie(response: Response, token: str) -> None:
 def sign_up(payload: SignUpRequest, response: Response, database: DatabaseSession):
     try:
         user, token = register_user(database, payload)
-    except DuplicateEmailError as exc:
-        raise HTTPException(status_code=409, detail="An account with this email already exists.") from exc
+    except DuplicateAccountError as exc:
+        raise HTTPException(status_code=409, detail="Email or username is already in use.") from exc
     _set_session_cookie(response, token)
     return user
 
 
 @router.post("/login", response_model=UserResponse)
-def log_in(payload: AuthCredentials, response: Response, database: DatabaseSession):
-    result = authenticate_user(database, str(payload.email), payload.password)
+def log_in(payload: LoginRequest, response: Response, database: DatabaseSession):
+    identifier = payload.identifier or str(payload.email or "")
+    result = authenticate_user(database, identifier, payload.password)
     if result is None:
-        raise HTTPException(status_code=401, detail="Email or password is incorrect.")
+        raise HTTPException(status_code=401, detail="Email/username or password is incorrect.")
     user, token = result
     _set_session_cookie(response, token)
     return user

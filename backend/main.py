@@ -17,15 +17,13 @@ from app.workflows.file_analysis import (
     DocumentTooLargeError,
 )
 from auth.admin import router as admin_router
-from auth.database import engine
-from auth.models import Base
+from auth.database import initialize_auth_database
 from auth.routes import router as auth_router
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # This creates the small MVP auth schema. Use versioned migrations as the schema grows.
-    Base.metadata.create_all(bind=engine)
+    initialize_auth_database()
     yield
 
 

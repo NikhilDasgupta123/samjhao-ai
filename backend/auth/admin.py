@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
 
 from auth.dependencies import AdminUser, DatabaseSession
 from auth.models import User
-from auth.schemas import RoleUpdateRequest, UserResponse
+from auth.schemas import AdminUserCreateRequest, RoleUpdateRequest, UserResponse
+from auth.services import DuplicateAccountError, create_user_account
 
 router = APIRouter(prefix="/api/admin", tags=["Administration"])
 
@@ -11,6 +12,18 @@ router = APIRouter(prefix="/api/admin", tags=["Administration"])
 @router.get("/users", response_model=list[UserResponse])
 def list_users(_admin: AdminUser, database: DatabaseSession):
     return list(database.scalars(select(User).order_by(User.created_at.desc())))
+
+
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def add_user(
+    payload: AdminUserCreateRequest,
+    _admin: AdminUser,
+    database: DatabaseSession,
+):
+    try:
+        return create_user_account(database, payload)
+    except DuplicateAccountError as exc:
+        raise HTTPException(status_code=409, detail="Email or username is already in use.") from exc
 
 
 @router.patch("/users/{user_id}/role", response_model=UserResponse)
