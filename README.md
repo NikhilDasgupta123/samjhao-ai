@@ -1,5 +1,5 @@
-# samjhao-ai
-AI-powered document assistant that explains PDFs, images, screenshots, and text in simple language and extracts important actions, dates, amounts, and warnings.
+# Docu Gentlemen
+AI-powered document handling for business teams. Analyze text-based PDFs, DOCX files, and text documents to surface summaries, actions, dates, amounts, warnings, and key evidence.
 
 ## Run the backend
 
