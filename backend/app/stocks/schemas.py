@@ -67,4 +67,4 @@ class MarketWatchResponse(BaseModel):
     retrieved_at: datetime
     rows: list[MarketWatchStock] = Field(default_factory=list)
     source: str = "NSE via jugaad-data"
-    refresh_interval_seconds: int = 60
+    refresh_interval_seconds: int = 1

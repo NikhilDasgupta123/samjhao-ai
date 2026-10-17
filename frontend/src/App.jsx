@@ -15,8 +15,46 @@ import { MarketWatchTable } from "./features/market/components/MarketWatchTable.
 import { StockMarketDataForm } from "./features/market/components/StockMarketDataForm.jsx";
 import { StockMarketDetails } from "./features/market/components/StockMarketDetails.jsx";
 
+const THEME_STORAGE_KEY = "marketbrief-theme";
+
+function getInitialTheme() {
+  try {
+    return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
+
+function ThemeToggle({ theme, onToggle }) {
+  const nextTheme = theme === "dark" ? "light" : "dark";
+
+  return (
+    <button
+      className="theme-toggle"
+      type="button"
+      aria-label={`Switch to ${nextTheme} mode`}
+      aria-pressed={theme === "dark"}
+      title={`Switch to ${nextTheme} mode`}
+      onClick={onToggle}
+    >
+      <svg viewBox="0 0 20 20" aria-hidden="true" fill="none">
+        {theme === "dark" ? (
+          <>
+            <circle cx="10" cy="10" r="3.5" />
+            <path d="M10 1.8v2M10 16.2v2M18.2 10h-2M3.8 10h-2m14-5.8-1.4 1.4M5.6 14.4l-1.4 1.4m11.6 0-1.4-1.4M5.6 5.6 4.2 4.2" />
+          </>
+        ) : (
+          <path d="M16.6 12.9A7 7 0 0 1 7.1 3.4a7 7 0 1 0 9.5 9.5Z" />
+        )}
+      </svg>
+      <span>{nextTheme === "dark" ? "Dark" : "Light"}</span>
+    </button>
+  );
+}
+
 export default function App() {
   const [route, setRoute] = useState(() => routeForPath(window.location.pathname));
+  const [theme, setTheme] = useState(getInitialTheme);
   const [currentUser, setCurrentUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [activePortalTab, setActivePortalTab] = useState("Overview");
@@ -27,6 +65,16 @@ export default function App() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const hasEntered = authReady && route === "workspace";
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      // The selected theme remains active for this session if storage is unavailable.
+    }
+  }, [theme]);
 
   const handleMarketWatchUnauthorized = useCallback(() => {
     setCurrentUser(null);
@@ -150,7 +198,7 @@ export default function App() {
   ];
 
   return (
-    <div className={`app-shell ${hasEntered ? "portal-shell" : ""}`}>
+    <div className={`app-shell ${hasEntered ? "portal-shell" : ""} ${hasEntered && activePortalTab === "Stocks" ? "portal-shell-market-watch" : ""}`} data-theme={theme}>
       <header className={`topbar ${hasEntered ? "portal-topbar" : ""}`}>
         <a
           className="brand"
@@ -174,10 +222,12 @@ export default function App() {
               <strong>{currentUser?.full_name || currentUser?.email || "MarketBrief workspace"}</strong>
               <small>{currentUser?.role === "admin" ? "Administrator" : "India market desk"}</small>
             </span>
+            <ThemeToggle theme={theme} onToggle={() => setTheme((current) => current === "dark" ? "light" : "dark")} />
             <button className="workspace-logout" type="button" disabled={isLoading} onClick={() => void handleLogout()}>Log out</button>
           </div>
         ) : (
           <div className="topbar-right">
+            <ThemeToggle theme={theme} onToggle={() => setTheme((current) => current === "dark" ? "light" : "dark")} />
             <div className="availability"><span /> India stock market dashboard</div>
             <a className="topbar-link" href={API_DOCS_URL} target="_blank" rel="noreferrer">
               API docs <ArrowIcon />
@@ -188,7 +238,7 @@ export default function App() {
 
       {hasEntered ? (
         <main id="top" className="portal-main">
-          {!(activePortalTab === "Users" && currentUser?.role === "admin") && (
+          {activePortalTab !== "Stocks" && !(activePortalTab === "Users" && currentUser?.role === "admin") && (
             <label className="portal-search">
               <SearchIcon />
               <input

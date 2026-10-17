@@ -22,7 +22,7 @@ stock_toolset = MCPToolset(stock_data_mcp)
 market_watch_toolset = MCPToolset(stock_data_mcp)
 _market_watch_lock = asyncio.Lock()
 _market_watch_cache: tuple[float, dict] | None = None
-_MARKET_WATCH_CACHE_SECONDS = 60
+_MARKET_WATCH_CACHE_SECONDS = 1
 
 
 def read_mcp_result(response: dict) -> dict:
