@@ -1,15 +1,14 @@
 from fastapi import APIRouter
 
 from auth.dependencies import CurrentUser
-from app.schemas.stock import (
+from app.ai.schemas import StockAnalyzeRequest, StockAnalyzeResponse
+from app.stocks.schemas import (
     MarketWatchResponse,
-    StockAnalyzeRequest,
-    StockAnalyzeResponse,
     StockMarketDataRequest,
     StockMarketDataResponse,
 )
-from app.services.stock_market_service import get_nse_market_watch, get_stock_market_data
-from app.workflows.stock_analysis import analyze_stock
+from app.ai.workflows.stock_analysis import analyze_stock
+from app.stocks.data.market_data_service import get_nse_market_watch, get_stock_market_data
 
 
 router = APIRouter(prefix="/api/stocks", tags=["Stock market"])

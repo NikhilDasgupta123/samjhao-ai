@@ -3,11 +3,11 @@ import json
 
 from pydantic_ai import Agent, PromptedOutput
 
-from app.agents.model import get_stock_model
-from app.prompts.stock_analysis import STOCK_ANALYSIS_PROMPT
-from app.schemas.stock import StockResearchBrief
-from app.services.ai_service import AIServiceError
-from app.services.stock_market_service import stock_toolset
+from app.ai.models.cloudflare import get_stock_model
+from app.ai.prompts.stock_analysis import STOCK_ANALYSIS_PROMPT
+from app.ai.errors import AIServiceError
+from app.ai.schemas import StockResearchBrief
+from app.stocks.data.market_data_service import stock_toolset
 
 
 @lru_cache(maxsize=1)

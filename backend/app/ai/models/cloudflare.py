@@ -3,7 +3,7 @@ from functools import lru_cache
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from app.core.config import settings
+from app.core.settings import settings
 
 
 @lru_cache(maxsize=2)

@@ -3,15 +3,15 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from app.agents.stock_agent import summarize_stock
+from app.ai.agents.stock_agent import summarize_stock
 from app.core.flow_logger import log_flow_event, new_flow_id
-from app.schemas.stock import StockAnalyzeRequest, StockAnalyzeResponse
-from app.services.ai_service import AIServiceError
-from app.services.stock_market_service import (
-    StockDataUnavailableError,
+from app.stocks.data.market_data_service import (
     fetch_stock_market_data,
     stock_toolset,
 )
+from app.ai.errors import AIServiceError
+from app.ai.schemas import StockAnalyzeRequest, StockAnalyzeResponse
+from app.stocks.errors import StockDataUnavailableError
 
 
 class StockAnalysisState(TypedDict, total=False):

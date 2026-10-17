@@ -4,7 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
+from app.core.settings import settings
 from auth.models import AuthSession, User
 from auth.schemas import SignUpRequest
 from auth.security import create_session_token, hash_password, hash_session_token, verify_password

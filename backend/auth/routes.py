@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
-from app.core.config import settings
+from app.core.settings import settings
 from auth.dependencies import CurrentUser, DatabaseSession
 from auth.schemas import LoginRequest, SignUpRequest, UserResponse
 from auth.services import DuplicateAccountError, authenticate_user, register_user, revoke_session

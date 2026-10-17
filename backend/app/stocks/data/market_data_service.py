@@ -9,8 +9,9 @@ from zoneinfo import ZoneInfo
 from pydantic_ai.mcp import MCPToolset
 
 from app.core.flow_logger import log_flow_event, new_flow_id
-from app.mcp_servers.stock_data import stock_data_mcp
-from app.schemas.stock import (
+from app.stocks.data.nse_mcp_server import stock_data_mcp
+from app.stocks.errors import StockDataUnavailableError
+from app.stocks.schemas import (
     MarketWatchResponse,
     StockMarketDataRequest,
     StockMarketDataResponse,
@@ -22,10 +23,6 @@ market_watch_toolset = MCPToolset(stock_data_mcp)
 _market_watch_lock = asyncio.Lock()
 _market_watch_cache: tuple[float, dict] | None = None
 _MARKET_WATCH_CACHE_SECONDS = 60
-
-
-class StockDataUnavailableError(Exception):
-    """Raised when the NSE MCP server cannot provide the requested data."""
 
 
 def read_mcp_result(response: dict) -> dict:

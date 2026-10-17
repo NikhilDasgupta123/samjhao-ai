@@ -2,13 +2,14 @@
 
 import asyncio
 import math
-import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from fastmcp import FastMCP
 from jugaad_data.nse import NSELive, stock_df
+
+from app.stocks.symbols import normalize_symbol
 
 
 stock_data_mcp = FastMCP(
@@ -18,18 +19,6 @@ stock_data_mcp = FastMCP(
         "Symbols use NSE codes such as RELIANCE, SBIN, or TCS, without .NS."
     ),
 )
-_SYMBOL_PATTERN = re.compile(r"^[A-Z0-9][A-Z0-9.&-]{0,29}$")
-
-
-def normalize_symbol(symbol: str) -> str:
-    value = symbol.strip().upper()
-    if value.endswith(".NS"):
-        value = value[:-3]
-    if not _SYMBOL_PATTERN.fullmatch(value):
-        raise ValueError("Enter a valid NSE symbol, for example RELIANCE or SBIN.")
-    return value
-
-
 def _number(value: Any) -> float | None:
     if value is None or isinstance(value, bool):
         return None

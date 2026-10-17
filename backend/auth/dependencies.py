@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
+from app.core.settings import settings
 from auth.database import get_db
 from auth.models import AuthSession, User
 from auth.security import hash_session_token
