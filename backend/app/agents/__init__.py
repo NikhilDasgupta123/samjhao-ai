@@ -1,1 +1,1 @@
-"""PydanticAI agents used by the analysis workflow."""
+"""PydanticAI agents used by the stock research workflow."""

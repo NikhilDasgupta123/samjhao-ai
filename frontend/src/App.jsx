@@ -1,19 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-const DOCUMENT_EXTENSIONS = ["pdf", "docx", "txt"];
-const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
-const ACCEPTED_EXTENSIONS = [...DOCUMENT_EXTENSIONS, ...IMAGE_EXTENSIONS];
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 const API_DOCS_URL = API_BASE_URL ? `${API_BASE_URL}/docs` : "http://127.0.0.1:8000/docs";
-
-function FileIcon({ type = "document" }) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" className={`file-icon file-icon-${type}`}>
-      <path d="M6.5 3.5h7l4 4v13h-11z" />
-      <path d="M13.5 3.5v4h4m-8 4h5m-5 3h5m-5 3h3" />
-    </svg>
-  );
-}
 
 function ArrowIcon() {
   return (
@@ -36,7 +24,7 @@ function ResultSection({ title, icon, items = [], tone = "" }) {
           {items.map((item, index) => <li key={`${title}-${index}`}>{item}</li>)}
         </ul>
       ) : (
-        <p className="empty-result">Nothing specific found in this report.</p>
+        <p className="empty-result">No additional details were returned.</p>
       )}
     </section>
   );
@@ -62,6 +50,68 @@ function DashboardStat({ icon, label, value, detail, tone }) {
   );
 }
 
+function StockAnalysisForm({ symbol, setSymbol, question, setQuestion, onSubmit, isLoading }) {
+  return (
+    <section className="portal-card stock-query-card">
+      <div className="portal-panel-heading">
+        <div>
+          <h2>Research an NSE stock</h2>
+          <p>Get the latest available quote, recent price history, and an AI brief.</p>
+        </div>
+        <span className="stock-query-badge"><i /> NSE · India</span>
+      </div>
+      <form className="stock-query-form" onSubmit={onSubmit}>
+        <label>
+          NSE symbol
+          <input
+            value={symbol}
+            onChange={(event) => setSymbol(event.target.value.toUpperCase())}
+            placeholder="RELIANCE"
+            pattern="[A-Za-z0-9][A-Za-z0-9.&-]{0,29}([.]NS)?"
+            maxLength={33}
+            required
+          />
+        </label>
+        <label className="stock-question-field">
+          What would you like to know?
+          <input
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            maxLength={500}
+            placeholder="Summarize the latest quote and recent trend"
+          />
+        </label>
+        <button className="analyze-button stock-query-submit" type="submit" disabled={isLoading}>
+          {isLoading ? "Researching…" : "Analyze stock"} {!isLoading && <ArrowIcon />}
+        </button>
+      </form>
+      <p className="stock-query-note">Data fetched from NSE through jugaad-data. Informational research, not investment advice.</p>
+    </section>
+  );
+}
+
+function QuoteMetrics({ quote }) {
+  const formatPrice = (value) => value == null ? "—" : `₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value)}`;
+  const changeValue = quote?.percent_change;
+  const changeTone = changeValue > 0 ? "positive" : changeValue < 0 ? "negative" : "neutral";
+  const metrics = [
+    { label: "Last price", value: formatPrice(quote?.last_price), tone: "" },
+    { label: "Day change", value: quote?.change == null ? "—" : `${formatPrice(quote.change)}${changeValue == null ? "" : ` (${changeValue.toFixed(2)}%)`}`, tone: changeTone },
+    { label: "Day range", value: quote?.day_low == null || quote?.day_high == null ? "—" : `${formatPrice(quote.day_low)} – ${formatPrice(quote.day_high)}`, tone: "" },
+    { label: "Previous close", value: formatPrice(quote?.previous_close), tone: "" },
+  ];
+  return (
+    <div className="quote-grid" aria-label="Latest available quote">
+      {metrics.map((metric) => (
+        <article className={`quote-metric ${metric.tone}`} key={metric.label}>
+          <span>{metric.label}</span>
+          <strong>{metric.value}</strong>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 function formatActivityTime(value) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -82,7 +132,7 @@ function formatLocalDateTime(value) {
   }).format(new Date(value));
 }
 
-function ActivityChart({ documents }) {
+function ActivityChart({ stocks }) {
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = new Date();
     date.setHours(0, 0, 0, 0);
@@ -91,8 +141,8 @@ function ActivityChart({ documents }) {
     return {
       date,
       label: date.toLocaleDateString(undefined, { weekday: "short" }),
-      count: documents.filter((document) => {
-        const processedDate = new Date(document.processedAt);
+      count: stocks.filter((stock) => {
+        const processedDate = new Date(stock.processedAt);
         return processedDate.toDateString() === date.toDateString();
       }).length,
     };
@@ -111,11 +161,11 @@ function ActivityChart({ documents }) {
       <div className="portal-panel-heading">
         <div>
           <h2 id="activity-chart-title">Research activity</h2>
-          <p>Reports reviewed · Last 7 days</p>
+          <p>Stock briefs created · Last 7 days</p>
         </div>
-        <span className="chart-total">{documents.length}</span>
+        <span className="chart-total">{stocks.length}</span>
       </div>
-      <svg className="activity-chart" viewBox="0 0 316 126" role="img" aria-label="File analyses over the last seven days">
+      <svg className="activity-chart" viewBox="0 0 316 126" role="img" aria-label="Stock analyses over the last seven days">
         <defs>
           <linearGradient id="activity-fill" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#3e8b80" stopOpacity=".2" />
@@ -124,57 +174,57 @@ function ActivityChart({ documents }) {
         </defs>
         {[26, 62, 98].map((y) => <line key={y} x1="10" x2="306" y1={y} y2={y} className="chart-gridline" />)}
         <path d={areaPath} fill="url(#activity-fill)" />
-        <path d={linePath} className={`chart-line ${documents.length ? "" : "chart-line-empty"}`} />
-        {documents.length > 0 && points.map((point) => (
+        <path d={linePath} className={`chart-line ${stocks.length ? "" : "chart-line-empty"}`} />
+        {stocks.length > 0 && points.map((point) => (
           <circle key={point.date.toISOString()} cx={point.x} cy={point.y} r="3.5" className="chart-point" />
         ))}
       </svg>
       <div className="chart-day-labels">
         {points.map((point) => <span key={point.date.toISOString()}>{point.label}</span>)}
       </div>
-      {!documents.length && <p className="chart-empty-note">Your research activity will appear here.</p>}
+      {!stocks.length && <p className="chart-empty-note">Your research activity will appear here.</p>}
     </section>
   );
 }
 
 function ActivityFeed({
-  documents,
+  stocks,
   onReview,
-  onUpload,
+  onAnalyze,
   compact = false,
-  emptyTitle = "No reports analyzed yet",
-  emptyMessage = "Upload an earnings report, company filing, or chart screenshot to see its key signals here.",
-  showUpload = true,
+  emptyTitle = "No stocks researched yet",
+  emptyMessage = "Analyze an NSE symbol to see its brief and latest available quote here.",
+  showAnalyze = true,
 }) {
   return (
     <section className={`portal-card activity-card ${compact ? "activity-card-compact" : ""}`}>
       <div className="portal-panel-heading">
         <div>
           <h2>Recent activity</h2>
-          <p>Reports and market visuals reviewed by AI</p>
+          <p>Indian stocks researched with NSE data</p>
         </div>
-        {documents.length > 0 && <span className="activity-period">Latest {Math.min(documents.length, compact ? 5 : 3)}</span>}
+        {stocks.length > 0 && <span className="activity-period">Latest {Math.min(stocks.length, compact ? 5 : 3)}</span>}
       </div>
-      {documents.length ? (
+      {stocks.length ? (
         <div className="activity-list">
-          {documents.slice(0, compact ? 5 : 3).map((document, index) => (
-            <article className="activity-item" key={document.id}>
+          {stocks.slice(0, compact ? 5 : 3).map((stock, index) => (
+            <article className="activity-item" key={stock.id}>
               <span className={`activity-marker activity-marker-${index % 3}`} aria-hidden="true">✓</span>
               <div className="activity-copy">
-                <strong>{document.filename}</strong>
-                <p>{document.analysis.summary || "AI analysis completed."}</p>
-                <time dateTime={document.processedAt}>{formatActivityTime(document.processedAt)}</time>
+                <strong>{stock.symbol}</strong>
+                <p>{stock.result.brief.summary || "Stock research brief completed."}</p>
+                <time dateTime={stock.processedAt}>{formatActivityTime(stock.processedAt)}</time>
               </div>
-              <button className="activity-open" type="button" onClick={() => onReview(document)}>Review</button>
+              <button className="activity-open" type="button" onClick={() => onReview(stock)}>Review</button>
             </article>
           ))}
         </div>
       ) : (
         <div className="portal-empty-state">
-          <span className="empty-document-icon" aria-hidden="true">↗</span>
+          <span className="empty-stock-icon" aria-hidden="true">↗</span>
           <strong>{emptyTitle}</strong>
           <p>{emptyMessage}</p>
-          {showUpload && <button className="text-action" type="button" onClick={onUpload}>Upload your first report <span aria-hidden="true">→</span></button>}
+          {showAnalyze && <button className="text-action" type="button" onClick={onAnalyze}>Research your first stock <span aria-hidden="true">→</span></button>}
         </div>
       )}
     </section>
@@ -191,13 +241,13 @@ function MarketPreview({ authReady, currentUser, onEnter }) {
   return (
     <section className="market-preview" aria-label="Stock research workspace preview">
       <div className="market-preview-topline">
-        <span><i /> RESEARCH DESK</span>
-        <span>AI INSIGHTS</span>
+        <span><i /> NSE STOCKS</span>
+        <span>AI RESEARCH</span>
       </div>
       <div className="market-preview-title">
         <div>
-          <span className="market-preview-kicker">YOUR NEXT REPORT</span>
-          <strong>Company research</strong>
+          <span className="market-preview-kicker">YOUR NEXT STOCK BRIEF</span>
+          <strong>Indian company research</strong>
         </div>
         <span className="market-preview-spark" aria-hidden="true">↗</span>
       </div>
@@ -217,16 +267,16 @@ function MarketPreview({ authReady, currentUser, onEnter }) {
             return <circle key={x} cx={x} cy={y} r="3.5" className="market-chart-point" />;
           })}
         </svg>
-        <div className="market-chart-axis"><span>REPORT</span><span>INSIGHTS</span><span>EVIDENCE</span></div>
+        <div className="market-chart-axis"><span>NSE DATA</span><span>PRICE TREND</span><span>BRIEF</span></div>
       </div>
       <div className="market-preview-footer">
-        <span><i className="preview-dot preview-dot-green" /> Earnings & filings</span>
-        <span><i className="preview-dot preview-dot-lime" /> Risks & catalysts</span>
+        <span><i className="preview-dot preview-dot-green" /> Live quote</span>
+        <span><i className="preview-dot preview-dot-lime" /> Historical trend</span>
       </div>
       <button className="analyze-button market-preview-button" type="button" disabled={!authReady} onClick={onEnter}>
         {authReady ? (currentUser ? "Open research desk" : "Get started") : "Loading…"} <ArrowIcon />
       </button>
-      <p className="market-preview-note">Illustrative preview · Upload-based insights · No live prices</p>
+      <p className="market-preview-note">Illustrative preview · NSE data via jugaad-data MCP</p>
     </section>
   );
 }
@@ -284,7 +334,7 @@ function AuthPanel({ onAuthenticated }) {
         <div className="eyebrow"><span className="eyebrow-line" /> STOCK RESEARCH WORKSPACE</div>
         <h1 id="auth-title">{mode === "signup" ? "Create your account" : "Welcome back"}</h1>
         <p className="auth-description">
-          {mode === "signup" ? "Create an account to start reviewing company reports with AI." : "Sign in to continue to your stock research desk."}
+          {mode === "signup" ? "Create an account to research Indian stocks with AI." : "Sign in to continue to your stock research desk."}
         </p>
         {formError && <div className="error-message" role="alert">{formError}</div>}
         <form className="auth-form" onSubmit={handleSubmit}>
@@ -531,15 +581,15 @@ function AdminUsersPanel({ currentUser }) {
 }
 
 export default function App() {
-  const fileInputRef = useRef(null);
   const [route, setRoute] = useState(() => routeForPath(window.location.pathname));
   const [currentUser, setCurrentUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [activePortalTab, setActivePortalTab] = useState("Overview");
   const [searchTerm, setSearchTerm] = useState("");
-  const [documents, setDocuments] = useState([]);
+  const [stocks, setStocks] = useState([]);
   const [analysis, setAnalysis] = useState(null);
-  const [analyzedFilename, setAnalyzedFilename] = useState("");
+  const [symbol, setSymbol] = useState("");
+  const [question, setQuestion] = useState("Give me a concise overview of the latest quote and recent price trend.");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const hasEntered = authReady && route === "workspace";
@@ -596,63 +646,30 @@ export default function App() {
     }
     setCurrentUser(null);
     setActivePortalTab("Overview");
-    setDocuments([]);
+    setStocks([]);
     setAnalysis(null);
-    setAnalyzedFilename("");
     navigateTo("landing");
   }
 
-  function chooseFile(nextFile) {
-    if (!nextFile) return false;
-
-    if (nextFile.size > 10 * 1024 * 1024) {
-      setError("This file is larger than 10 MB. Please choose a smaller file.");
-      setAnalysis(null);
-      return false;
-    }
-
-    const extension = nextFile.name.split(".").pop()?.toLowerCase();
-    if (!ACCEPTED_EXTENSIONS.includes(extension)) {
-      setError("Choose a PDF, DOCX, TXT, JPG, PNG, or WEBP file.");
-      setAnalysis(null);
-      return false;
-    }
-
+  async function analyzeStock(event) {
+    event.preventDefault();
+    if (isLoading) return;
+    const requestedSymbol = symbol.trim().toUpperCase();
+    if (!requestedSymbol) return;
     setError("");
     setAnalysis(null);
-    return true;
-  }
-
-  function handleFileChange(event) {
-    const nextFile = event.target.files?.[0];
-    if (!chooseFile(nextFile)) {
-      event.target.value = "";
-      return;
-    }
-
-    event.target.value = "";
-    void analyzeFile(nextFile);
-  }
-
-  async function analyzeFile(fileToAnalyze) {
-    if (!fileToAnalyze || isLoading) return;
-
-    setError("");
-    setAnalysis(null);
-    setActivePortalTab("Overview");
     setIsLoading(true);
 
-    const formData = new FormData();
-    formData.append("file", fileToAnalyze);
-    formData.append("language", "english");
-
     try {
-      const extension = fileToAnalyze.name.split(".").pop()?.toLowerCase();
-      const route = IMAGE_EXTENSIONS.includes(extension) ? "images" : "documents";
-      const response = await fetch(`${API_BASE_URL}/api/${route}/analyze`, {
+      const response = await fetch(`${API_BASE_URL}/api/stocks/analyze`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify({
+          symbol: requestedSymbol,
+          question: question.trim() || "Give me a concise overview of the latest quote and recent price trend.",
+          history_days: 30,
+        }),
       });
       const payload = await response.json().catch(() => ({}));
 
@@ -661,21 +678,23 @@ export default function App() {
           setCurrentUser(null);
           navigateTo("auth");
         }
-        throw new Error(payload.detail || "The file could not be analyzed. Please try again.");
+        const detail = Array.isArray(payload.detail)
+          ? payload.detail.map((item) => item.msg).join(" ")
+          : payload.detail;
+        throw new Error(detail || "The stock could not be analyzed. Please try again.");
       }
 
-      const filename = payload.filename || fileToAnalyze.name;
       const processedAt = new Date().toISOString();
-      const documentRecord = {
-        id: `${Date.now()}-${filename}`,
-        filename,
+      const stockRecord = {
+        id: `${Date.now()}-${payload.symbol}`,
+        symbol: payload.symbol,
         processedAt,
-        analysis: payload.analysis,
+        result: payload,
       };
 
-      setAnalysis(payload.analysis);
-      setAnalyzedFilename(filename);
-      setDocuments((currentDocuments) => [documentRecord, ...currentDocuments]);
+      setSymbol(payload.symbol);
+      setAnalysis(payload);
+      setStocks((currentStocks) => [stockRecord, ...currentStocks]);
       setActivePortalTab("Analysis");
     } catch (requestError) {
       setError(
@@ -688,40 +707,31 @@ export default function App() {
     }
   }
 
-  function reviewDocument(document) {
-    setAnalysis(document.analysis);
-    setAnalyzedFilename(document.filename);
+  function reviewStock(stock) {
+    setAnalysis(stock.result);
+    setSymbol(stock.symbol);
     setActivePortalTab("Analysis");
   }
 
-  const uploadDocument = () => fileInputRef.current?.click();
-  const matchingDocuments = documents.filter((document) => {
+  const matchingStocks = stocks.filter((stock) => {
     const query = searchTerm.trim().toLowerCase();
-    return !query || document.filename.toLowerCase().includes(query);
+    return !query || stock.symbol.toLowerCase().includes(query);
   });
-  const documentTotals = documents.reduce((totals, document) => ({
-    actions: totals.actions + (document.analysis.actions?.length || 0),
-    dates: totals.dates + (document.analysis.dates?.length || 0),
-    warnings: totals.warnings + (document.analysis.warnings?.length || 0),
-  }), { actions: 0, dates: 0, warnings: 0 });
+  const stockTotals = stocks.reduce((totals, stock) => ({
+    observations: totals.observations + (stock.result.brief.key_observations?.length || 0),
+    dataPoints: totals.dataPoints + (stock.result.history?.length || 0),
+    risks: totals.risks + (stock.result.brief.risks?.length || 0),
+  }), { observations: 0, dataPoints: 0, risks: 0 });
   const portalTabs = [
-    ...(analysis ? ["Overview", "Files", "Activity", "Analysis"] : ["Overview", "Files", "Activity"]),
+    "Overview",
+    "Stocks",
+    "Activity",
+    ...(analysis ? ["Analysis"] : []),
     ...(currentUser?.role === "admin" ? ["Users"] : []),
   ];
 
   return (
     <div className={`app-shell ${hasEntered ? "portal-shell" : ""}`}>
-      <input
-        ref={fileInputRef}
-        className="file-picker-input"
-        id="document-file"
-        type="file"
-        accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/jpeg,image/png,image/webp"
-        onChange={handleFileChange}
-        tabIndex={-1}
-        aria-hidden="true"
-      />
-
       <header className={`topbar ${hasEntered ? "portal-topbar" : ""}`}>
         <a
           className="brand"
@@ -766,8 +776,8 @@ export default function App() {
                 type="search"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search reports"
-                aria-label="Search reports"
+              placeholder="Search researched symbols"
+              aria-label="Search researched stock symbols"
               />
             </label>
           )}
@@ -776,14 +786,13 @@ export default function App() {
             <div className="portal-intro-row">
               <div>
                 <div className="eyebrow"><span className="eyebrow-line" /> {activePortalTab === "Users" ? "ADMINISTRATION" : "MARKETBRIEF RESEARCH DESK"}</div>
-                <h1 id="portal-title">{activePortalTab === "Users" ? "User management" : "Research overview"}</h1>
-                <p>{activePortalTab === "Users" ? "Manage accounts and workspace access." : "Company reports, earnings, and chart insights in one place."}</p>
+                <h1 id="portal-title">{activePortalTab === "Users" ? "User management" : activePortalTab === "Stocks" ? "Stock research" : "Research overview"}</h1>
+                <p>{activePortalTab === "Users" ? "Manage accounts and workspace access." : "Indian stock quotes, price history, and AI research briefs."}</p>
               </div>
               {!(activePortalTab === "Users" && currentUser?.role === "admin") && (
-                <button className="portal-upload-button" type="button" onClick={uploadDocument} disabled={isLoading}>
+                <button className="portal-stock-button" type="button" onClick={() => setActivePortalTab("Stocks")} disabled={isLoading}>
                   <span aria-hidden="true">＋</span>
-                  <span className="upload-button-long">{isLoading ? "Analyzing…" : "Upload file"}</span>
-                  <span className="upload-button-short">{isLoading ? "Analyzing…" : "Upload"}</span>
+                  <span>{isLoading ? "Researching…" : "Analyze stock"}</span>
                 </button>
               )}
             </div>
@@ -817,60 +826,63 @@ export default function App() {
             {activePortalTab === "Overview" && (
               <>
                 <div className="dashboard-stats">
-                  <DashboardStat icon="▤" label="Reports analyzed" value={documents.length} detail="Research files reviewed" tone="stat-teal" />
-                  <DashboardStat icon="↗" label="Catalysts" value={documentTotals.actions} detail="Signals in your reports" tone="stat-blue" />
-                  <DashboardStat icon="◷" label="Key dates" value={documentTotals.dates} detail="Events surfaced by AI" tone="stat-gold" />
-                  <DashboardStat icon="!" label="Risks flagged" value={documentTotals.warnings} detail="Worth a closer look" tone="stat-slate" />
+                  <DashboardStat icon="↗" label="Stocks researched" value={stocks.length} detail="Briefs in this session" tone="stat-teal" />
+                  <DashboardStat icon="✳" label="Observations" value={stockTotals.observations} detail="Signals from the data" tone="stat-blue" />
+                  <DashboardStat icon="▥" label="Price points" value={stockTotals.dataPoints} detail="Recent NSE sessions" tone="stat-gold" />
+                  <DashboardStat icon="!" label="Risk notes" value={stockTotals.risks} detail="Items to review" tone="stat-slate" />
                 </div>
 
                 <div className="dashboard-panels">
-                  <ActivityFeed documents={documents} onReview={reviewDocument} onUpload={uploadDocument} />
-                  <ActivityChart documents={documents} />
+                  <ActivityFeed stocks={stocks} onReview={reviewStock} onAnalyze={() => setActivePortalTab("Stocks")} />
+                  <ActivityChart stocks={stocks} />
                 </div>
               </>
             )}
 
-            {activePortalTab === "Files" && (
-              <section className="portal-card document-library">
-                <div className="portal-panel-heading">
-                  <div>
-                    <h2>Research library</h2>
-                    <p>{matchingDocuments.length} {matchingDocuments.length === 1 ? "report" : "reports"} in this session</p>
-                  </div>
-                </div>
-                {matchingDocuments.length ? (
-                  <div className="document-list">
-                    {matchingDocuments.slice(0, 5).map((document) => (
-                      <article className="document-row" key={document.id}>
-                        <span className="document-row-icon"><FileIcon /></span>
-                        <div className="document-row-copy">
-                          <strong>{document.filename}</strong>
-                          <span>{formatActivityTime(document.processedAt)}</span>
-                        </div>
-                        <button className="activity-open" type="button" onClick={() => reviewDocument(document)}>Review</button>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="portal-empty-state">
-                    <span className="empty-document-icon" aria-hidden="true">▤</span>
-                    <strong>{documents.length ? "No matching reports" : "Your research desk is ready"}</strong>
-                    <p>{documents.length ? "Try another search term." : "Upload an earnings report, company filing, or chart screenshot (PDF, DOCX, TXT, JPG, PNG, or WEBP)."}</p>
-                    {!documents.length && <button className="text-action" type="button" onClick={uploadDocument}>Upload research <span aria-hidden="true">→</span></button>}
-                  </div>
+            {activePortalTab === "Stocks" && (
+              <div className="stock-research-view">
+                <StockAnalysisForm
+                  symbol={symbol}
+                  setSymbol={setSymbol}
+                  question={question}
+                  setQuestion={setQuestion}
+                  onSubmit={analyzeStock}
+                  isLoading={isLoading}
+                />
+                {matchingStocks.length > 0 && (
+                  <section className="portal-card stock-library">
+                    <div className="portal-panel-heading">
+                      <div>
+                        <h2>Recently researched</h2>
+                        <p>{matchingStocks.length} {matchingStocks.length === 1 ? "stock" : "stocks"} in this session</p>
+                      </div>
+                    </div>
+                    <div className="stock-list">
+                      {matchingStocks.slice(0, 8).map((stock) => (
+                        <article className="stock-row" key={stock.id}>
+                          <span className="stock-symbol-mark">{stock.symbol.slice(0, 2)}</span>
+                          <div className="stock-row-copy">
+                            <strong>{stock.symbol}</strong>
+                            <span>{formatActivityTime(stock.processedAt)} · ₹{stock.result.quote.last_price?.toLocaleString("en-IN") || "—"}</span>
+                          </div>
+                          <button className="activity-open" type="button" onClick={() => reviewStock(stock)}>Open brief</button>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
                 )}
-              </section>
+              </div>
             )}
 
             {activePortalTab === "Activity" && (
               <ActivityFeed
-                documents={matchingDocuments}
-                onReview={reviewDocument}
-                onUpload={uploadDocument}
+                stocks={matchingStocks}
+                onReview={reviewStock}
+                onAnalyze={() => setActivePortalTab("Stocks")}
                 compact
-                emptyTitle={documents.length ? "No matching activity" : undefined}
-                emptyMessage={documents.length ? "Try searching for another file." : undefined}
-                showUpload={!documents.length && !searchTerm}
+                emptyTitle={stocks.length ? "No matching activity" : undefined}
+                emptyMessage={stocks.length ? "Try another NSE symbol." : undefined}
+                showAnalyze={!stocks.length && !searchTerm}
               />
             )}
             {activePortalTab === "Users" && currentUser?.role === "admin" && (
@@ -880,24 +892,28 @@ export default function App() {
               <section className="analysis-results portal-analysis" aria-labelledby="results-title" aria-live="polite">
                 <div className="results-topline">
                   <div>
-                    <div className="eyebrow"><span className="eyebrow-line" /> STOCK REPORT ANALYSIS</div>
-                    <h2 id="results-title">The signals behind the story.</h2>
+                    <div className="eyebrow"><span className="eyebrow-line" /> STOCK AGENT · NSE MCP DATA</div>
+                    <h2 id="results-title">{analysis.quote.company_name || analysis.symbol} <span>({analysis.symbol})</span></h2>
                   </div>
-                  <div className="analyzed-file"><FileIcon /><span>{analyzedFilename}</span></div>
+                  <div className="analyzed-file stock-data-source">
+                    <span className="stock-source-dot" />
+                    <span>{analysis.quote.source}{analysis.quote.data_as_of ? ` · ${analysis.quote.data_as_of}` : ""}</span>
+                  </div>
                 </div>
+
+                <QuoteMetrics quote={analysis.quote} />
 
                 <article className="summary-card">
-                  <div className="summary-label"><span className="summary-sparkle">✳</span> COMPANY BRIEF</div>
-                  <p>{analysis.summary || "No summary was returned for this file."}</p>
+                  <div className="summary-label"><span className="summary-sparkle">✳</span> STOCK BRIEF</div>
+                  <p>{analysis.brief.summary}</p>
                 </article>
 
-                <div className="result-grid">
-                  <ResultSection title="Catalysts & events" icon="↗" items={analysis.actions} tone="action-card" />
-                  <ResultSection title="Key dates" icon="◷" items={analysis.dates} />
-                  <ResultSection title="Reported figures" icon="$" items={analysis.amounts} />
-                  <ResultSection title="Risks to review" icon="!" items={analysis.warnings} tone="warning-card" />
-                  <ResultSection title="Source evidence" icon="“" items={analysis.evidence} tone="evidence-card" />
+                <div className="result-grid stock-result-grid">
+                  <ResultSection title="Key observations" icon="↗" items={analysis.brief.key_observations} tone="action-card" />
+                  <ResultSection title="Recent price history" icon="▥" items={analysis.history.slice(-7).map((point) => `${point.date}: close ₹${point.close?.toLocaleString("en-IN") || "—"}${point.volume == null ? "" : ` · volume ${point.volume.toLocaleString("en-IN")}`}`)} />
+                  <ResultSection title="Risks & limitations" icon="!" items={analysis.brief.risks} tone="warning-card" />
                 </div>
+                <p className="analysis-disclaimer">{analysis.disclaimer} NSE quote availability can vary by market hours and source response.</p>
               </section>
             )}
             </div>
@@ -912,18 +928,18 @@ export default function App() {
               <div className="eyebrow"><span className="eyebrow-line" /> AI STOCK RESEARCH ASSISTANT</div>
               <h1 id="hero-title">Read the market.<br />Start with <span className="highlight-word">clarity.</span></h1>
               <p className="hero-description">
-                Turn earnings reports, company filings, and chart screenshots into a clear brief with catalysts, key dates, reported figures, risks, and source evidence.
+                Explore Indian NSE stocks with the latest available quote, recent price history, and a plain-language brief powered by Cloudflare AI.
               </p>
 
               <div className="feature-list">
-                <div className="feature-item"><span className="feature-check">✓</span><span>Understand filings and earnings faster</span></div>
-                <div className="feature-item"><span className="feature-check">✓</span><span>Surface catalysts, figures, dates, and risks</span></div>
-                <div className="feature-item"><span className="feature-check">✓</span><span>Keep every insight tied to source evidence</span></div>
+                <div className="feature-item"><span className="feature-check">✓</span><span>Fetch live NSE quote data with MCP tools</span></div>
+                <div className="feature-item"><span className="feature-check">✓</span><span>Review recent OHLCV price history</span></div>
+                <div className="feature-item"><span className="feature-check">✓</span><span>Get a clear, data-grounded stock brief</span></div>
               </div>
 
               <div className="hero-footnote">
                 <span className="sparkle">✳</span>
-                Research support based on your uploads. No live market data.
+                NSE data through jugaad-data. Informational research, not investment advice.
               </div>
             </div>
 
@@ -939,7 +955,7 @@ export default function App() {
 
       <footer className="site-footer">
         <span>MarketBrief AI</span>
-        <span>Stock research briefs from your company reports and charts.</span>
+        <span>Indian stock research briefs powered by NSE data and AI.</span>
         <span className="footer-language">RESEARCH <i>·</i> SIGNALS <i>·</i> AI</span>
       </footer>
     </div>

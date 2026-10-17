@@ -1,1 +1,1 @@
-"""LangGraph workflows that connect upload handling to the AI agents."""
+"""LangGraph workflows connecting API requests to the stock agent."""

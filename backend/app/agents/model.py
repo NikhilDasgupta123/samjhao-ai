@@ -20,9 +20,6 @@ def get_cloudflare_model(model_name: str) -> OpenAIChatModel:
     return OpenAIChatModel(model_name, provider=provider)
 
 
-def get_document_model() -> OpenAIChatModel:
+def get_stock_model() -> OpenAIChatModel:
+    """Use the configured Cloudflare Workers AI text model for stock research."""
     return get_cloudflare_model(settings.cloudflare_model)
-
-
-def get_vision_model() -> OpenAIChatModel:
-    return get_cloudflare_model(settings.cloudflare_vision_model)

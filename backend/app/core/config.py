@@ -10,7 +10,6 @@ class Settings(BaseSettings):
     cloudflare_account_id: str
     cloudflare_api_token: str
     cloudflare_model: str = "@cf/meta/llama-3.1-8b-instruct"
-    cloudflare_vision_model: str = "@cf/meta/llama-3.2-11b-vision-instruct"
     database_url: str = "postgresql+psycopg://samjhao:samjhao_local_dev@127.0.0.1:5432/samjhao"
     auth_cookie_name: str = "samjhao_session"
     auth_cookie_secure: bool = False
