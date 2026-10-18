@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { SearchIcon, TableViewIcon, NodeViewIcon } from "../../../components/icons.jsx";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { SearchIcon } from "../../../components/icons.jsx";
 import { formatRupees, formatIndiaDateTime, formatMarketVolume } from "../../../lib/formatters.js";
 import { getMarketWatch, getStockMarketData } from "../api/marketService.js";
 import { StockDetailsPopover } from "./StockDetailsPopover.jsx";
@@ -10,27 +10,22 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
   const [isMarketWatchLoading, setIsMarketWatchLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [page, setPage] = useState(0);
-  const [viewFormat, setViewFormat] = useState("table");
   const [chartType, setChartType] = useState("line");
-  const [hoveredGraphSymbol, setHoveredGraphSymbol] = useState(null);
-  const [draggingGraphSymbol, setDraggingGraphSymbol] = useState(null);
-  const [nodePositions, setNodePositions] = useState({});
-  const [selectedGraphSymbol, setSelectedGraphSymbol] = useState(null);
-  const [selectedGraphDetails, setSelectedGraphDetails] = useState(null);
-  const [graphDetailsLoading, setGraphDetailsLoading] = useState(false);
-  const [graphDetailsError, setGraphDetailsError] = useState("");
+  const [selectedStockSymbol, setSelectedStockSymbol] = useState(null);
+  const [selectedStockDetails, setSelectedStockDetails] = useState(null);
+  const [stockDetailsLoading, setStockDetailsLoading] = useState(false);
+  const [stockDetailsError, setStockDetailsError] = useState("");
   const [hoveredTableSymbol, setHoveredTableSymbol] = useState(null);
   const [tablePopoverPosition, setTablePopoverPosition] = useState(null);
-  const graphDetailsController = useRef(null);
-  const graphNodeDrag = useRef(null);
-  const suppressGraphClick = useRef(false);
+  const stockDetailsController = useRef(null);
   const tablePopoverTimer = useRef(null);
   const historyLoadTimer = useRef(null);
-  const previousPrices = useRef(new Map());
+  const previousMarketData = useRef(new Map());
   const priceFlashTimer = useRef(null);
   const tableWrapRef = useRef(null);
+  const tablePopoverRef = useRef(null);
   const paginationSentinelRef = useRef(null);
-  const [priceFlashes, setPriceFlashes] = useState({});
+  const [rowUpdates, setRowUpdates] = useState({});
   const pageSize = 20;
 
   useEffect(() => {
@@ -71,33 +66,101 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
       window.clearTimeout(tablePopoverTimer.current);
       window.clearTimeout(historyLoadTimer.current);
       controller?.abort();
-      graphDetailsController.current?.abort();
+      stockDetailsController.current?.abort();
     };
   }, [onUnauthorized]);
 
   useEffect(() => {
     if (!marketWatch?.rows) return undefined;
 
-    const nextPrices = new Map();
-    const nextFlashes = {};
+    const nextMarketData = new Map();
+    const changedRows = {};
+    const changedAt = Date.now();
     for (const row of marketWatch.rows) {
       const price = Number(row.last_price);
-      if (!Number.isFinite(price)) continue;
-      const previousPrice = previousPrices.current.get(row.symbol);
-      if (previousPrice != null && price !== previousPrice) {
-        nextFlashes[row.symbol] = price > previousPrice ? "up" : "down";
-      }
-      nextPrices.set(row.symbol, price);
-    }
-    previousPrices.current = nextPrices;
-    setPriceFlashes(nextFlashes);
+      const change = row.change == null ? null : Number(row.change);
+      const percentChange = row.percent_change == null ? null : Number(row.percent_change);
+      const volume = row.volume == null ? null : Number(row.volume);
+      const previousClose = row.previous_close == null ? null : Number(row.previous_close);
+      const currentData = {
+        companyName: row.company_name ?? null,
+        price: Number.isFinite(price) ? price : null,
+        change: Number.isFinite(change) ? change : null,
+        percentChange: Number.isFinite(percentChange) ? percentChange : null,
+        previousClose: Number.isFinite(previousClose) ? previousClose : null,
+        volume: Number.isFinite(volume) ? volume : null,
+      };
+      const previousData = previousMarketData.current.get(row.symbol);
 
-    window.clearTimeout(priceFlashTimer.current);
-    if (Object.keys(nextFlashes).length) {
-      priceFlashTimer.current = window.setTimeout(() => setPriceFlashes({}), 900);
+      if (previousData) {
+        const rowChanged = Object.keys(currentData).some((field) => currentData[field] !== previousData[field]);
+        const priceChanged = currentData.price !== previousData.price
+          && currentData.price != null
+          && previousData.price != null;
+        const changeValueChanged = currentData.change !== previousData.change;
+        const percentChangeValueChanged = currentData.percentChange !== previousData.percentChange;
+        const volumeChanged = currentData.volume !== previousData.volume;
+
+        if (rowChanged) {
+          const currentMove = currentData.change ?? currentData.percentChange ?? 0;
+          let isMovingUp;
+          if (priceChanged) {
+            isMovingUp = currentData.price > previousData.price;
+          } else if (changeValueChanged && currentData.change != null && previousData.change != null) {
+            isMovingUp = currentData.change > previousData.change;
+          } else if (percentChangeValueChanged && currentData.percentChange != null && previousData.percentChange != null) {
+            isMovingUp = currentData.percentChange > previousData.percentChange;
+          } else if (currentData.previousClose !== previousData.previousClose
+            && currentData.previousClose != null
+            && previousData.previousClose != null) {
+            isMovingUp = currentData.previousClose < previousData.previousClose;
+          } else {
+            isMovingUp = currentMove === 0
+              ? volumeChanged
+                ? currentData.volume >= (previousData.volume ?? 0)
+                : currentData.price >= (previousData.price ?? 0)
+              : currentMove > 0;
+          }
+
+          changedRows[row.symbol] = {
+            direction: isMovingUp ? "up" : "down",
+            changedAt,
+            expiresAt: changedAt + 5_000,
+          };
+        }
+      }
+      nextMarketData.set(row.symbol, currentData);
     }
-    return () => window.clearTimeout(priceFlashTimer.current);
+    previousMarketData.current = nextMarketData;
+    if (Object.keys(changedRows).length) {
+      setRowUpdates((updates) => ({ ...updates, ...changedRows }));
+    }
   }, [marketWatch]);
+
+  useEffect(() => {
+    window.clearTimeout(priceFlashTimer.current);
+    const nextExpiry = Object.values(rowUpdates)
+      .filter((update) => update.direction)
+      .reduce((earliest, update) => Math.min(earliest, update.expiresAt), Infinity);
+    if (!Number.isFinite(nextExpiry)) return undefined;
+
+    priceFlashTimer.current = window.setTimeout(() => {
+      const now = Date.now();
+      setRowUpdates((updates) => {
+        let hasExpiredUpdate = false;
+        const nextUpdates = Object.fromEntries(Object.entries(updates).map(([symbol, update]) => {
+          if (update.direction && update.expiresAt <= now) {
+            hasExpiredUpdate = true;
+            return [symbol, { ...update, direction: null }];
+          }
+          return [symbol, update];
+        }));
+        return hasExpiredUpdate ? nextUpdates : updates;
+      });
+    }, Math.max(0, nextExpiry - Date.now()));
+
+    return () => window.clearTimeout(priceFlashTimer.current);
+  }, [rowUpdates]);
 
   useEffect(() => {
     setPage(0);
@@ -113,12 +176,15 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
     return !query || row.symbol.toLowerCase().includes(query)
       || (row.company_name || "").toLowerCase().includes(query);
   });
+  const sortedRows = [...filteredRows].sort((a, b) => (
+    (rowUpdates[b.symbol]?.changedAt || 0) - (rowUpdates[a.symbol]?.changedAt || 0)
+  ));
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize));
-  const visibleRows = filteredRows.slice(0, (page + 1) * pageSize);
+  const visibleRows = sortedRows.slice(0, (page + 1) * pageSize);
   const hasMoreRows = visibleRows.length < filteredRows.length;
 
   useEffect(() => {
-    if (viewFormat !== "table" || !hasMoreRows) return undefined;
+    if (!hasMoreRows) return undefined;
     const root = tableWrapRef.current;
     const sentinel = paginationSentinelRef.current;
     if (!root || !sentinel) return undefined;
@@ -129,50 +195,49 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
     }, { root, rootMargin: "0px 0px 100px 0px" });
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMoreRows, pageCount, viewFormat, visibleRows.length]);
-  const graphCenter = { x: 500, y: 380 };
-  const graphNodes = visibleRows.map((row, index) => {
-    const angle = -Math.PI / 2 + (2 * Math.PI * index) / Math.max(visibleRows.length, 1);
-    const savedPosition = nodePositions[row.symbol];
-    return {
-      ...row,
-      x: savedPosition?.x ?? graphCenter.x + Math.cos(angle) * 275,
-      y: savedPosition?.y ?? graphCenter.y + Math.sin(angle) * 275,
-      tone: row.percent_change > 0 ? "positive" : row.percent_change < 0 ? "negative" : "flat",
-    };
-  });
-  const activeGraphSymbol = viewFormat === "table"
-    ? hoveredTableSymbol
-    : hoveredGraphSymbol || selectedGraphSymbol;
-  const activeGraphNode = (viewFormat === "table" ? filteredRows : graphNodes)
-    .find((node) => node.symbol === activeGraphSymbol) || null;
-  const activeGraphDetails = selectedGraphSymbol === activeGraphNode?.symbol ? selectedGraphDetails : null;
-  const activeGraphQuote = activeGraphDetails?.quote || activeGraphNode;
-  const activeGraphTone = activeGraphQuote?.percent_change > 0
+  }, [hasMoreRows, pageCount, visibleRows.length]);
+  const activeStock = filteredRows.find((row) => row.symbol === hoveredTableSymbol) || null;
+  const activeStockDetails = selectedStockSymbol === activeStock?.symbol ? selectedStockDetails : null;
+  const activeStockQuote = activeStockDetails?.quote || activeStock;
+  const activeStockTone = activeStockQuote?.percent_change > 0
     ? "positive"
-    : activeGraphQuote?.percent_change < 0 ? "negative" : "flat";
-  const activeGraphLoading = selectedGraphSymbol === activeGraphNode?.symbol && graphDetailsLoading;
-  const activeGraphError = selectedGraphSymbol === activeGraphNode?.symbol ? graphDetailsError : "";
-  const activeGraphUpdatedAt = activeGraphDetails?.retrieved_at
-    || activeGraphQuote?.data_as_of
-    || activeGraphNode?.updated_at
+    : activeStockQuote?.percent_change < 0 ? "negative" : "flat";
+  const activeStockLoading = selectedStockSymbol === activeStock?.symbol && stockDetailsLoading;
+  const activeStockError = selectedStockSymbol === activeStock?.symbol ? stockDetailsError : "";
+  const activeStockUpdatedAt = activeStockDetails?.retrieved_at
+    || activeStockQuote?.data_as_of
+    || activeStock?.updated_at
     || marketWatch?.retrieved_at;
-  const activeGraphPopoverPosition = activeGraphNode
-    ? `${activeGraphNode.x >= graphCenter.x ? "is-left" : "is-right"} ${activeGraphNode.y >= graphCenter.y ? "is-top" : "is-bottom"}`
-    : "";
 
-  function closeGraphPopover() {
-    graphDetailsController.current?.abort();
-    graphDetailsController.current = null;
+  useLayoutEffect(() => {
+    if (!tablePopoverPosition || !tablePopoverRef.current) return undefined;
+
+    function keepPopoverInViewport() {
+      const bounds = tablePopoverRef.current?.getBoundingClientRect();
+      if (!bounds) return;
+      const left = Math.max(12, Math.min(tablePopoverPosition.left, window.innerWidth - bounds.width - 12));
+      const top = Math.max(12, Math.min(tablePopoverPosition.top, window.innerHeight - bounds.height - 12));
+      if (Math.abs(left - tablePopoverPosition.left) > 1 || Math.abs(top - tablePopoverPosition.top) > 1) {
+        setTablePopoverPosition({ top, left });
+      }
+    }
+
+    keepPopoverInViewport();
+    window.addEventListener("resize", keepPopoverInViewport);
+    return () => window.removeEventListener("resize", keepPopoverInViewport);
+  }, [activeStock?.symbol, activeStockDetails, activeStockError, activeStockLoading, activeStockUpdatedAt, tablePopoverPosition]);
+
+  function closeStockDetailsPopover() {
+    stockDetailsController.current?.abort();
+    stockDetailsController.current = null;
     window.clearTimeout(tablePopoverTimer.current);
     window.clearTimeout(historyLoadTimer.current);
-    setHoveredGraphSymbol(null);
     setHoveredTableSymbol(null);
     setTablePopoverPosition(null);
-    setSelectedGraphSymbol(null);
-    setSelectedGraphDetails(null);
-    setGraphDetailsError("");
-    setGraphDetailsLoading(false);
+    setSelectedStockSymbol(null);
+    setSelectedStockDetails(null);
+    setStockDetailsError("");
+    setStockDetailsLoading(false);
   }
 
   function showTablePopover(row, element) {
@@ -210,145 +275,52 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
     setTablePopoverPosition(null);
   }
 
-  async function openGraphNode(row) {
-    graphDetailsController.current?.abort();
-    if (selectedGraphSymbol === row.symbol) {
-      graphDetailsController.current = null;
-      setHoveredGraphSymbol(null);
-      setSelectedGraphSymbol(null);
-      setSelectedGraphDetails(null);
-      setGraphDetailsError("");
-      setGraphDetailsLoading(false);
-      return;
-    }
-
-    await loadStockHistory(row);
-  }
-
   async function loadStockHistory(row) {
     window.clearTimeout(historyLoadTimer.current);
-    graphDetailsController.current?.abort();
+    stockDetailsController.current?.abort();
     const requestController = new AbortController();
-    graphDetailsController.current = requestController;
-    setSelectedGraphSymbol(row.symbol);
-    setSelectedGraphDetails(null);
-    setGraphDetailsError("");
-    setGraphDetailsLoading(true);
+    stockDetailsController.current = requestController;
+    setSelectedStockSymbol(row.symbol);
+    setSelectedStockDetails(null);
+    setStockDetailsError("");
+    setStockDetailsLoading(true);
     try {
       const payload = await getStockMarketData({
         symbol: row.symbol,
         historyDays: 30,
         signal: requestController.signal,
       });
-      setSelectedGraphDetails(payload);
+      setSelectedStockDetails(payload);
     } catch (requestError) {
       if (requestError.name === "AbortError") return;
       if (requestError.status === 401) onUnauthorized();
-      else setGraphDetailsError(requestError.message || "Stock details could not be loaded.");
+      else setStockDetailsError(requestError.message || "Stock details could not be loaded.");
     } finally {
-      if (graphDetailsController.current === requestController) {
-        graphDetailsController.current = null;
-        setGraphDetailsLoading(false);
+      if (stockDetailsController.current === requestController) {
+        stockDetailsController.current = null;
+        setStockDetailsLoading(false);
       }
     }
   }
 
   function handleChartTypeChange(type, row) {
     setChartType(type);
-    if (selectedGraphSymbol !== row.symbol || !selectedGraphDetails?.history?.length) {
+    if (selectedStockSymbol !== row.symbol || !selectedStockDetails?.history?.length) {
       loadStockHistory(row);
     }
   }
 
   function scheduleStockHistoryLoad(row) {
-    if (chartType !== "candlestick" || selectedGraphSymbol === row.symbol) return;
+    if (chartType !== "candlestick" || selectedStockSymbol === row.symbol) return;
     window.clearTimeout(historyLoadTimer.current);
     historyLoadTimer.current = window.setTimeout(() => loadStockHistory(row), 350);
-  }
-
-  function showGraphPopover(node) {
-    setHoveredGraphSymbol(node.symbol);
-    scheduleStockHistoryLoad(node);
-  }
-
-  function closeGraphHover() {
-    window.clearTimeout(historyLoadTimer.current);
-    setHoveredGraphSymbol(null);
-  }
-
-  function getGraphPointerPosition(event) {
-    const svg = event.currentTarget.ownerSVGElement;
-    const screenMatrix = svg?.getScreenCTM();
-    if (!svg || !screenMatrix) return null;
-    const point = svg.createSVGPoint();
-    point.x = event.clientX;
-    point.y = event.clientY;
-    return point.matrixTransform(screenMatrix.inverse());
-  }
-
-  function startGraphNodeDrag(event, node) {
-    if (event.button !== 0) return;
-    const point = getGraphPointerPosition(event);
-    if (!point) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    graphNodeDrag.current = {
-      symbol: node.symbol,
-      pointerId: event.pointerId,
-      offsetX: node.x - point.x,
-      offsetY: node.y - point.y,
-      startX: point.x,
-      startY: point.y,
-      moved: false,
-    };
-    setDraggingGraphSymbol(node.symbol);
-    setHoveredGraphSymbol(node.symbol);
-  }
-
-  function moveGraphNode(event, node) {
-    const drag = graphNodeDrag.current;
-    if (!drag || drag.symbol !== node.symbol || drag.pointerId !== event.pointerId) return;
-    const point = getGraphPointerPosition(event);
-    if (!point) return;
-    if (!drag.moved && Math.hypot(point.x - drag.startX, point.y - drag.startY) > 4) {
-      drag.moved = true;
-    }
-    if (!drag.moved) return;
-
-    const x = Math.max(42, Math.min(958, point.x + drag.offsetX));
-    const y = Math.max(42, Math.min(718, point.y + drag.offsetY));
-    setNodePositions((positions) => ({ ...positions, [node.symbol]: { x, y } }));
-  }
-
-  function finishGraphNodeDrag(event) {
-    const drag = graphNodeDrag.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    graphNodeDrag.current = null;
-    setDraggingGraphSymbol(null);
-    if (drag.moved) {
-      suppressGraphClick.current = true;
-      window.setTimeout(() => { suppressGraphClick.current = false; }, 80);
-    }
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }
-
-  function handleGraphNodeClick(node, event) {
-    if (suppressGraphClick.current) {
-      suppressGraphClick.current = false;
-      event.preventDefault();
-      return;
-    }
-    openGraphNode(node);
   }
 
   return (
     <section className="portal-card market-watch-card">
       <div className="portal-panel-heading market-watch-heading">
         <div>
-          <h2>India market watch <span className="market-watch-count">{marketWatch?.rows?.length || ""}</span></h2>
+          <h2>India market watch</h2>
           <p>NIFTY 500 stocks · checks NSE snapshots every second</p>
         </div>
         <span className="market-watch-updated">
@@ -367,194 +339,84 @@ export function MarketWatchTable({ onUseSymbol, onUnauthorized }) {
               aria-label="Filter market watch by company or symbol"
             />
           </label>
-          <div className="market-watch-format-toggle" role="group" aria-label="Market watch display format">
-            <button
-              type="button"
-              className={viewFormat === "table" ? "active" : ""}
-              aria-pressed={viewFormat === "table"}
-              onClick={() => setViewFormat("table")}
-            >
-              <TableViewIcon /> <span>Table</span>
-            </button>
-            <button
-              type="button"
-              className={viewFormat === "nodes" ? "active" : ""}
-              aria-pressed={viewFormat === "nodes"}
-              onClick={() => setViewFormat("nodes")}
-            >
-              <NodeViewIcon /> <span>Node Visual</span>
-            </button>
-          </div>
         </div>
         <span className="market-watch-note">Prices change when NSE publishes a new snapshot · not tick streaming</span>
       </div>
       {marketWatchError && <p className="market-watch-error" role="status">{marketWatchError}</p>}
-      {viewFormat === "table" ? (
-        <div className="market-watch-table-wrap" ref={tableWrapRef} onScroll={closeTablePopover}>
-          <table className="market-watch-table">
-            <thead>
-              <tr>
-                <th scope="col">Company / symbol</th>
-                <th scope="col">Last price</th>
-                <th scope="col">Change</th>
-                <th scope="col">Change %</th>
-                <th scope="col">Volume</th>
-                <th scope="col">Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleRows.map((row) => {
-                const tone = row.percent_change > 0 ? "market-positive" : row.percent_change < 0 ? "market-negative" : "";
-                const directionValue = row.change ?? row.percent_change;
-                const direction = directionValue > 0 ? "up" : directionValue < 0 ? "down" : "flat";
-                const priceFlash = priceFlashes[row.symbol];
-                return (
-                  <tr
-                    className={`market-watch-row${priceFlash ? ` market-watch-row-flash-${priceFlash}` : ""}`}
-                    key={row.symbol}
-                    tabIndex="0"
-                    onMouseEnter={(event) => showTablePopover(row, event.currentTarget)}
-                    onMouseLeave={scheduleTablePopoverClose}
-                    onFocus={(event) => showTablePopover(row, event.currentTarget)}
-                    onBlur={scheduleTablePopoverClose}
-                  >
-                    <td><strong>{row.company_name || row.symbol}</strong><span className="market-watch-symbol">{row.symbol}</span></td>
-                    <td className={priceFlash ? `market-price-tick market-price-tick-${priceFlash}` : ""}>{formatRupees(row.last_price)}</td>
-                    <td className={tone}>{row.change == null ? "—" : (
-                      <span className={`market-watch-move ${direction}`}>
-                        <span className="market-watch-move-arrow" aria-hidden="true">{direction === "up" ? "↑" : direction === "down" ? "↓" : "→"}</span>
-                        {formatRupees(row.change)}
-                      </span>
-                    )}</td>
-                    <td className={tone}>{row.percent_change == null ? "—" : `${Number(row.percent_change).toFixed(2)}%`}</td>
-                    <td>{formatMarketVolume(row.volume)}</td>
-                    <td><button className="market-watch-select" type="button" onClick={() => onUseSymbol(row.symbol)}>View</button></td>
-                  </tr>
-                );
-              })}
-              {!visibleRows.length && (
-                <tr><td className="market-watch-empty" colSpan="6">{isMarketWatchLoading ? "Loading NIFTY 500 quotes…" : "No matching stock found."}</td></tr>
-              )}
-              {hasMoreRows && <tr className="market-watch-pagination-sentinel" ref={paginationSentinelRef} aria-hidden="true"><td colSpan="6" /></tr>}
-            </tbody>
-          </table>
-          {activeGraphNode && activeGraphQuote && tablePopoverPosition && (
-            <StockDetailsPopover
-              stock={activeGraphNode}
-              quote={activeGraphQuote}
-              tone={activeGraphTone}
-              details={activeGraphDetails}
-              updatedAt={activeGraphUpdatedAt}
-              loading={activeGraphLoading}
-              error={activeGraphError}
-              chartType={chartType}
-              onChartTypeChange={(type) => handleChartTypeChange(type, activeGraphNode)}
-              emptyHistoryCaption="Session move · previous close vs latest price"
-              className="is-table"
-              style={{ top: tablePopoverPosition.top, left: tablePopoverPosition.left }}
-              onClose={closeGraphPopover}
-              onMouseEnter={() => window.clearTimeout(tablePopoverTimer.current)}
-              onMouseLeave={scheduleTablePopoverClose}
-              onViewDetails={onUseSymbol}
-            />
-          )}
-        </div>
-      ) : (
-        <div
-          className="market-watch-graph-wrap"
-          onMouseLeave={closeGraphHover}
-        >
-          <div className="market-watch-graph-legend">
-            <span><i className="graph-legend-index" /> NIFTY 500 index</span>
-            <span><i className="graph-legend-up" /> Gaining</span>
-            <span><i className="graph-legend-down" /> Declining</span>
-            <span>Showing {graphNodes.length} nodes · drag to rearrange · hover for a snapshot · click for the price graph</span>
-          </div>
-          {graphNodes.length ? (
-            <svg className="market-watch-network" viewBox="0 0 1000 760" role="group" aria-label={`NIFTY 500 connected to ${graphNodes.length} stocks on this page`}>
-              <circle className="market-watch-network-orbit" cx={graphCenter.x} cy={graphCenter.y} r="275" />
-              {graphNodes.map((node) => {
-                const dx = node.x - graphCenter.x;
-                const dy = node.y - graphCenter.y;
-                const distance = Math.hypot(dx, dy);
-                const startRatio = 67 / distance;
-                const endRatio = 38 / distance;
-                return (
-                  <line
-                    className={`market-watch-network-edge ${node.tone}${node.symbol === activeGraphSymbol ? " active" : ""}`}
-                    key={`${node.symbol}-edge`}
-                    x1={graphCenter.x + dx * startRatio}
-                    y1={graphCenter.y + dy * startRatio}
-                    x2={node.x - dx * endRatio}
-                    y2={node.y - dy * endRatio}
-                  />
-                );
-              })}
-              <g className="market-watch-network-hub">
-                <circle cx={graphCenter.x} cy={graphCenter.y} r="65" />
-                <text x={graphCenter.x} y={graphCenter.y - 4}>NIFTY 500</text>
-                <text className="market-watch-network-hub-count" x={graphCenter.x} y={graphCenter.y + 16}>{graphNodes.length} visible nodes</text>
-              </g>
-              {graphNodes.map((node) => (
-                <g
-                  className={`market-watch-network-node ${node.tone}${node.symbol === activeGraphSymbol ? " active" : ""}${node.symbol === draggingGraphSymbol ? " dragging" : ""}`}
-                  key={node.symbol}
-                  role="button"
+      <div className="market-watch-table-wrap" ref={tableWrapRef} onScroll={closeTablePopover}>
+        <table className="market-watch-table">
+          <thead>
+            <tr>
+              <th scope="col">Company / symbol</th>
+              <th scope="col">Last price</th>
+              <th scope="col">Change</th>
+              <th scope="col">Change %</th>
+              <th scope="col">Volume</th>
+              <th scope="col">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleRows.map((row) => {
+              const tone = row.percent_change > 0 ? "market-positive" : row.percent_change < 0 ? "market-negative" : "";
+              const directionValue = row.change ?? row.percent_change;
+              const direction = directionValue > 0 ? "up" : directionValue < 0 ? "down" : "flat";
+              const priceFlash = rowUpdates[row.symbol]?.direction;
+              return (
+                <tr
+                  className={`market-watch-row${priceFlash ? ` market-watch-row-flash-${priceFlash}` : ""}`}
+                  key={row.symbol}
                   tabIndex="0"
-                  aria-label={`${node.company_name || node.symbol}, ${formatRupees(node.last_price)}, ${node.percent_change == null ? "change unavailable" : `${Number(node.percent_change).toFixed(2)} percent change`}. Drag to reposition; click to show the price graph.`}
-                  onMouseEnter={() => showGraphPopover(node)}
-                  onFocus={() => showGraphPopover(node)}
-                  onPointerDown={(event) => startGraphNodeDrag(event, node)}
-                  onPointerMove={(event) => moveGraphNode(event, node)}
-                  onPointerUp={finishGraphNodeDrag}
-                  onPointerCancel={finishGraphNodeDrag}
-                  onLostPointerCapture={finishGraphNodeDrag}
-                  onBlur={(event) => {
-                    if (!event.currentTarget.closest(".market-watch-graph-wrap")?.contains(event.relatedTarget)) {
-                      closeGraphHover();
-                    }
-                  }}
-                  onClick={(event) => handleGraphNodeClick(node, event)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      openGraphNode(node);
-                    } else if (event.key === "Escape") {
-                      closeGraphPopover();
-                    }
-                  }}
+                  onMouseEnter={(event) => showTablePopover(row, event.currentTarget)}
+                  onMouseLeave={scheduleTablePopoverClose}
+                  onFocus={(event) => showTablePopover(row, event.currentTarget)}
+                  onBlur={scheduleTablePopoverClose}
                 >
-                  <circle cx={node.x} cy={node.y} r="38" />
-                  <text className="market-watch-network-symbol" x={node.x} y={node.y - 3} fontSize={node.symbol.length > 8 ? 7 : 9}>{node.symbol}</text>
-                  <text className="market-watch-network-change" x={node.x} y={node.y + 13}>{node.percent_change == null ? "—" : `${Number(node.percent_change) > 0 ? "+" : ""}${Number(node.percent_change).toFixed(1)}%`}</text>
-                </g>
-              ))}
-            </svg>
-          ) : (
-            <p className="market-watch-empty-node">{isMarketWatchLoading ? "Loading NIFTY 500 quotes…" : "No matching stock found."}</p>
-          )}
-          {activeGraphNode && activeGraphQuote && !draggingGraphSymbol && (
-            <StockDetailsPopover
-              stock={activeGraphNode}
-              quote={activeGraphQuote}
-              tone={activeGraphTone}
-              details={activeGraphDetails}
-              updatedAt={activeGraphUpdatedAt}
-              loading={activeGraphLoading}
-              error={activeGraphError}
-              chartType={chartType}
-              onChartTypeChange={(type) => handleChartTypeChange(type, activeGraphNode)}
-              className={activeGraphPopoverPosition}
-              onClose={closeGraphPopover}
-              onViewDetails={onUseSymbol}
-            />
-          )}
-        </div>
-      )}
+                  <td><strong>{row.company_name || row.symbol}</strong><span className="market-watch-symbol">{row.symbol}</span></td>
+                  <td className={priceFlash ? `market-price-tick market-price-tick-${priceFlash}` : ""}>{formatRupees(row.last_price)}</td>
+                  <td className={tone}>{row.change == null ? "—" : (
+                    <span className={`market-watch-move ${direction}`}>
+                      <span className="market-watch-move-arrow" aria-hidden="true">{direction === "up" ? "↑" : direction === "down" ? "↓" : "→"}</span>
+                      {formatRupees(row.change)}
+                    </span>
+                  )}</td>
+                  <td className={tone}>{row.percent_change == null ? "—" : `${Number(row.percent_change).toFixed(2)}%`}</td>
+                  <td>{formatMarketVolume(row.volume)}</td>
+                  <td><button className="market-watch-select" type="button" onClick={() => onUseSymbol(row.symbol)}>View</button></td>
+                </tr>
+              );
+            })}
+            {!visibleRows.length && (
+              <tr><td className="market-watch-empty" colSpan="6">{isMarketWatchLoading ? "Loading NIFTY 500 quotes…" : "No matching stock found."}</td></tr>
+            )}
+            {hasMoreRows && <tr className="market-watch-pagination-sentinel" ref={paginationSentinelRef} aria-hidden="true"><td colSpan="6" /></tr>}
+          </tbody>
+        </table>
+        {activeStock && activeStockQuote && tablePopoverPosition && (
+          <StockDetailsPopover
+            stock={activeStock}
+            quote={activeStockQuote}
+            tone={activeStockTone}
+            details={activeStockDetails}
+            updatedAt={activeStockUpdatedAt}
+            loading={activeStockLoading}
+            error={activeStockError}
+            chartType={chartType}
+            onChartTypeChange={(type) => handleChartTypeChange(type, activeStock)}
+            emptyHistoryCaption="Session move · previous close vs latest price"
+            className="is-table"
+            style={{ top: tablePopoverPosition.top, left: tablePopoverPosition.left }}
+            popoverRef={tablePopoverRef}
+            onClose={closeStockDetailsPopover}
+            onMouseEnter={() => window.clearTimeout(tablePopoverTimer.current)}
+            onMouseLeave={scheduleTablePopoverClose}
+            onViewDetails={onUseSymbol}
+          />
+        )}
+      </div>
       <div className="market-watch-footer">
         <span>{filteredRows.length ? `Showing ${visibleRows.length} of ${filteredRows.length} stocks` : "0 stocks"}</span>
         <span>{hasMoreRows
-          ? viewFormat === "table" ? "Scroll inside the table to load more" : "Switch to Table to load more stocks"
+          ? "Scroll inside the table to load more"
           : "All matching stocks loaded"}</span>
       </div>
       <p className="market-watch-disclaimer">NIFTY 500 covers 500 major NSE stocks, not every listed Indian stock. Refreshes provide the latest available NSE snapshot; updates can be delayed or unavailable outside market hours.</p>

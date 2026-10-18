@@ -15,6 +15,7 @@ export function StockDetailsPopover({
   emptyHistoryCaption = "Session move · click the node for a 30-day graph",
   className = "",
   style,
+  popoverRef,
   onClose,
   onMouseEnter,
   onMouseLeave,
@@ -22,6 +23,7 @@ export function StockDetailsPopover({
 }) {
   return (
     <aside
+      ref={popoverRef}
       className={`market-watch-stock-popover ${tone} ${className}`.trim()}
       style={style}
       aria-label={`${stock.company_name || stock.symbol} stock details`}
