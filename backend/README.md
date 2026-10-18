@@ -35,7 +35,7 @@ backend/
         |-- client.py                 Public API -> AI service HTTP client
         |-- schemas.py | errors.py    Stock analysis types and AI errors
         |-- catalyst_schemas.py       Catalyst source, summary and response models
-        |-- sources/                  GDELT news + DDGS web/social search
+        |-- sources/                  GDELT news + DDGS web/social/video search and preview images
         |-- workflows/stock_analysis.py LangGraph flow and state
         |-- workflows/stock_catalysts.py Catalyst search + summary LangGraph
         |-- agents/stock_agent.py     PydanticAI Stock Agent
@@ -62,7 +62,7 @@ AI SERVICE | port 8001
 POST /api/stocks/catalysts
     -> API forwards to POST /internal/stocks/catalysts
     -> app/ai/workflows/stock_catalysts.py
-    -> GDELT news + DDGS public web/social search (in parallel)
+    -> GDELT news + DDGS public web/social/YouTube search (in parallel)
     -> Market Catalyst Agent summarizes source titles with source IDs
     -> source links + possible factors -> frontend stock details
 ```
@@ -87,7 +87,7 @@ python -m uvicorn ai_service.main:app --reload --host 127.0.0.1 --port 8001
 
 The analysis request waits for the AI result. LangGraph, NSE fetches, and Cloudflare calls run in the separate AI process, so that work does not execute inside the public API process. The API uses an async HTTP call while it waits, so it can continue serving other requests. Terminal 2 shows the LangGraph routing boxes. Both processes still share the machine, so CPU or memory pressure can affect both. For an immediate response while analysis continues in the background, add a job queue and return a job ID (202 Accepted).
 
-Catalyst searches run only when a user opens a company's full details, not for all 500 companies at once. Results are cached in the AI process for 15 minutes. News and web searches target recent results from the past week. The web search uses the open-source DDGS metasearch library to search publicly indexed pages, blogs, and social posts, including X/Twitter, Facebook, Reddit, Stocktwits, LinkedIn, Threads, Instagram, and Telegram. Private, login-only, and non-indexed posts are unavailable. The summary uses headlines and search-result snippets rather than verified full posts, so displayed factors are possible coverage, not confirmed causes of price changes.
+Catalyst searches run only when a user opens a company's full details, not for all 500 companies at once. Results are cached in the AI process for 15 minutes. News, web, and YouTube searches target recent results from the past 30 days so dated sources can align with the price chart. The web search uses the open-source DDGS metasearch library to search publicly indexed pages, blogs, social posts, and videos; social searches include X/Twitter, Facebook, Reddit, Stocktwits, LinkedIn, Threads, Instagram, and Telegram. Private, login-only, and non-indexed posts are unavailable. The summary uses headlines, video titles, and search-result snippets rather than verified full pages or videos, so displayed factors are possible coverage, not confirmed causes of price changes.
 
 ```text
 Request path       -> app/api/routes/

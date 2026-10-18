@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatIndiaDateTime } from "../../../lib/formatters.js";
 import { getStockCatalysts } from "../api/marketService.js";
+import { CatalystSourceThumbnail } from "./CatalystSourceThumbnail.jsx";
 
 function formatSourceDate(value) {
   if (!value) return "Date not supplied";
@@ -19,13 +20,15 @@ function CatalystSourceList({ items, emptyLabel }) {
     <ul className="catalyst-source-list">
       {items.map((source) => (
         <li id={`catalyst-source-${source.id}`} key={source.id} className="catalyst-source-item">
+          <CatalystSourceThumbnail source={source} className={`catalyst-source-thumb is-${source.kind}`} />
           <div className="catalyst-source-copy">
             <a href={source.url} target="_blank" rel="noopener noreferrer">
               {source.title}
             </a>
-            <span>{source.publisher || (source.kind === "web" ? "Web source" : "News source")} · {formatSourceDate(source.published_at)}</span>
+            <span>{source.publisher || (source.kind === "video" ? "Video source" : source.kind === "web" ? "Web source" : "News source")} · {formatSourceDate(source.published_at)}</span>
             {source.snippet && <p>{source.snippet}</p>}
           </div>
+          {source.kind === "video" && <span className="catalyst-web-mark" aria-label="Video">▶</span>}
           {source.kind === "web" && <span className="catalyst-web-mark" aria-hidden="true">↗</span>}
         </li>
       ))}
@@ -33,7 +36,7 @@ function CatalystSourceList({ items, emptyLabel }) {
   );
 }
 
-export function StockCatalystPanel({ data, onUnauthorized }) {
+export function StockCatalystPanel({ data, onUnauthorized, onStatusChange = () => {} }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -49,6 +52,7 @@ export function StockCatalystPanel({ data, onUnauthorized }) {
     setLoading(true);
     setError("");
     setResult(null);
+    onStatusChange({ symbol: data.symbol, result: null, loading: true, error: "" });
 
     getStockCatalysts({
       symbol: data.symbol,
@@ -57,25 +61,35 @@ export function StockCatalystPanel({ data, onUnauthorized }) {
       signal: controller.signal,
     })
       .then((payload) => {
-        if (active) setResult(payload);
+        if (!active) return;
+        setResult(payload);
+        onStatusChange({ symbol: data.symbol, result: payload, loading: true, error: "" });
       })
       .catch((requestError) => {
         if (!active || requestError.name === "AbortError") return;
         if (requestError.status === 401) onUnauthorized();
-        else setError(requestError.message || "Source research could not be loaded.");
+        const message = requestError.message || "Source research could not be loaded.";
+        setError(message);
+        onStatusChange({ symbol: data.symbol, result: null, loading: false, error: message });
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (!active) return;
+        setLoading(false);
+        onStatusChange((current) => current.symbol === data.symbol ? { ...current, loading: false } : current);
       });
 
     return () => {
       active = false;
       controller.abort();
     };
-  }, [data.symbol, data.quote.company_name, onUnauthorized, refreshCount]);
+  }, [data.symbol, data.quote.company_name, onUnauthorized, onStatusChange, refreshCount]);
 
-  const sources = activeSourceTab === "news" ? result?.news || [] : result?.web || [];
-  const sourceError = activeSourceTab === "news" ? result?.news_error : result?.web_error;
+  const sources = activeSourceTab === "news"
+    ? result?.news || []
+    : activeSourceTab === "videos" ? result?.videos || [] : result?.web || [];
+  const sourceError = activeSourceTab === "news"
+    ? result?.news_error
+    : activeSourceTab === "videos" ? result?.video_error : result?.web_error;
 
   function refreshSources() {
     forceRefresh.current = true;
@@ -87,14 +101,14 @@ export function StockCatalystPanel({ data, onUnauthorized }) {
       <div className="portal-panel-heading stock-catalyst-heading">
         <div>
           <h2 id="stock-catalyst-title">What may be affecting this stock?</h2>
-          <p>Recent news, blogs, and public web/social coverage for {data.quote.company_name || data.symbol}.</p>
+          <p>Recent news, blogs, YouTube videos, and public web/social coverage for {data.quote.company_name || data.symbol}.</p>
         </div>
         <button type="button" className="stock-catalyst-refresh" onClick={refreshSources} disabled={loading}>
           {loading ? "Searching…" : "Search again"}
         </button>
       </div>
 
-      {loading && <p className="stock-catalyst-status">Searching recent articles, blogs, and public web/social posts…</p>}
+      {loading && <p className="stock-catalyst-status">Searching recent articles, blogs, videos, and public web/social posts…</p>}
       {error && <p className="stock-catalyst-error" role="alert">{error}</p>}
 
       {result && (
@@ -134,6 +148,9 @@ export function StockCatalystPanel({ data, onUnauthorized }) {
               <button type="button" role="tab" aria-selected={activeSourceTab === "web"} className={activeSourceTab === "web" ? "active" : ""} onClick={() => setActiveSourceTab("web")}>
                 Web & social <span>{result.web.length}</span>
               </button>
+              <button type="button" role="tab" aria-selected={activeSourceTab === "videos"} className={activeSourceTab === "videos" ? "active" : ""} onClick={() => setActiveSourceTab("videos")}>
+                Videos <span>{(result.videos || []).length}</span>
+              </button>
             </div>
             <span className="catalyst-retrieved-at">Searched {formatIndiaDateTime(result.retrieved_at)}{result.cached ? " · cached" : ""}</span>
           </div>
@@ -141,7 +158,9 @@ export function StockCatalystPanel({ data, onUnauthorized }) {
           {sourceError && <p className="stock-catalyst-error" role="status">{sourceError}</p>}
           <CatalystSourceList
             items={sources}
-            emptyLabel={sourceError || (activeSourceTab === "news" ? "No recent news results found." : "No recent public web or social results found.")}
+            emptyLabel={sourceError || (activeSourceTab === "news"
+              ? "No recent news results found."
+              : activeSourceTab === "videos" ? "No recent video results found." : "No recent public web or social results found.")}
           />
           {result.summary_error && <p className="catalyst-summary-fallback" role="status">AI summary unavailable; source links are still shown above.</p>}
         </>

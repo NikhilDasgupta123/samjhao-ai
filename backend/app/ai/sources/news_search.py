@@ -41,7 +41,7 @@ async def search_stock_news(
         "query": _search_query(symbol, company_name),
         "mode": "artlist",
         "format": "json",
-        "timespan": "7d",
+        "timespan": "30d",
         "maxrecords": str(min(max(limit * 2, 5), 20)),
         "sort": "datedesc",
     }
@@ -70,6 +70,11 @@ async def search_stock_news(
                 url=url,
                 publisher=str(article.get("domain") or article.get("sourcecountry") or "News source")[:120],
                 published_at=_published_at(article.get("seendate")),
+                thumbnail_url=(
+                    str(article.get("socialimage")).strip()
+                    if str(article.get("socialimage") or "").strip().startswith(("https://", "http://"))
+                    else None
+                ),
             )
         )
         if len(sources) >= limit:

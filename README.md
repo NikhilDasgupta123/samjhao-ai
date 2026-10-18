@@ -11,7 +11,7 @@ MarketBrief AI brings market snapshots, historical price charts, stock research,
 - **NSE market watch:** Search the NIFTY 500 snapshot in a responsive table or an interactive node graph. Drag nodes to rearrange them, or click one to open its price details.
 - **Stock charts:** View daily stock history as a line, area, or candlestick chart. Candlesticks use NSE open, high, low, close, and volume data.
 - **Stock Agent:** Ask a question about an NSE symbol. The Stock Agent combines verified NSE quote and history data with a typed AI research brief.
-- **Market Catalyst Agent:** Look up recent news and publicly indexed web or social results related to a stock, with links back to the sources.
+- **Market Catalyst Agent:** Look up recent news, publicly indexed web/social results, and YouTube videos related to a stock, with source links and available preview images.
 - **Accounts and roles:** Sign up and log in with an email or username. Admins can manage user accounts and roles.
 - **Responsive workspace:** Switch between light and charcoal themes; use the dashboard on desktop, tablet, or mobile.
 
@@ -33,7 +33,7 @@ flowchart LR
     Result --> UI[MarketBrief dashboard]
 ```
 
-The public API handles authentication and normal HTTP requests. Longer AI workflows run in a separate service on port `8001`. The Stock Agent can use the local NSE MCP tools; the Market Catalyst Agent searches GDELT news and public web/social results in parallel before summarizing linked sources. Cloudflare credentials are needed for AI-generated summaries.
+The public API handles authentication and normal HTTP requests. Longer AI workflows run in a separate service on port `8001`. The Stock Agent can use the local NSE MCP tools; the Market Catalyst Agent searches recent news, public web/social sources, and YouTube videos in parallel before summarizing linked sources. Cloudflare credentials are needed for AI-generated summaries.
 
 ## Technology
 
