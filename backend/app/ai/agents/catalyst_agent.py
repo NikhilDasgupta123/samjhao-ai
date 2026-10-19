@@ -1,3 +1,5 @@
+'''Finds and summarizes news and events that may affect NSE stocks or the wider Indian market.'''
+
 import json
 from functools import lru_cache
 

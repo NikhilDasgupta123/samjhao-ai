@@ -1,3 +1,5 @@
+'''Answers questions about NSE stocks using verified market data and research tools.'''
+
 from functools import lru_cache
 import json
 
