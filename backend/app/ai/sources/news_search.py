@@ -36,12 +36,23 @@ async def search_stock_news(
     *,
     limit: int = 8,
 ) -> list[CatalystSource]:
-    """Return recent article links and headlines; article text is not copied."""
+    """Return recent article links and headlines for one NSE stock."""
+    return await _search_news(_search_query(symbol, company_name), limit=limit, timespan="30d")
+
+
+async def search_india_market_news(*, limit: int = 8) -> list[CatalystSource]:
+    """Return recent India-wide NSE, Nifty and Sensex market headlines."""
+    query = '("NSE" OR "Nifty" OR "Sensex") (stocks OR shares OR market OR earnings OR results)'
+    return await _search_news(query, limit=limit, timespan="24h")
+
+
+async def _search_news(query: str, *, limit: int, timespan: str) -> list[CatalystSource]:
+    """Return article links, headlines and available publisher preview images."""
     params = {
-        "query": _search_query(symbol, company_name),
+        "query": query,
         "mode": "artlist",
         "format": "json",
-        "timespan": "30d",
+        "timespan": timespan,
         "maxrecords": str(min(max(limit * 2, 5), 20)),
         "sort": "datedesc",
     }

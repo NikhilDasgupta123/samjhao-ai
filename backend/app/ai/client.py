@@ -3,7 +3,12 @@
 import httpx
 from pydantic import ValidationError
 
-from app.ai.catalyst_schemas import StockCatalystRequest, StockCatalystResponse
+from app.ai.catalyst_schemas import (
+    DailyMarketDigestRequest,
+    DailyMarketDigestResponse,
+    StockCatalystRequest,
+    StockCatalystResponse,
+)
 from app.ai.errors import AIServiceError
 from app.ai.schemas import StockAnalyzeRequest, StockAnalyzeResponse
 from app.core.settings import settings
@@ -67,3 +72,16 @@ async def research_stock_catalysts_with_ai_service(
         return StockCatalystResponse.model_validate(payload)
     except ValidationError as exc:
         raise AIServiceError("AI service returned an invalid catalyst response.") from exc
+
+
+async def get_daily_market_digest_from_ai_service(
+    request: DailyMarketDigestRequest,
+) -> DailyMarketDigestResponse:
+    payload = await _post_to_ai_service(
+        "/internal/stocks/market/digest",
+        request.model_dump(mode="json"),
+    )
+    try:
+        return DailyMarketDigestResponse.model_validate(payload)
+    except ValidationError as exc:
+        raise AIServiceError("AI service returned an invalid daily market digest.") from exc

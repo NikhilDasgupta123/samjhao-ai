@@ -63,3 +63,23 @@ class StockCatalystResponse(BaseModel):
     video_error: str | None = None
     summary_error: str | None = None
     cached: bool = False
+
+
+class DailyMarketDigestRequest(BaseModel):
+    refresh: bool = False
+
+
+class DailyMarketDigestResponse(BaseModel):
+    status: str = "success"
+    scope: str = "India NSE market"
+    as_of_date: str
+    retrieved_at: str
+    news: list[CatalystSource] = Field(default_factory=list)
+    web: list[CatalystSource] = Field(default_factory=list)
+    videos: list[CatalystSource] = Field(default_factory=list)
+    brief: CatalystBrief
+    news_error: str | None = None
+    web_error: str | None = None
+    video_error: str | None = None
+    summary_error: str | None = None
+    cached: bool = False

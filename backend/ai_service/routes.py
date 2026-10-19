@@ -1,7 +1,13 @@
 from fastapi import APIRouter
 
-from app.ai.catalyst_schemas import StockCatalystRequest, StockCatalystResponse
+from app.ai.catalyst_schemas import (
+    DailyMarketDigestRequest,
+    DailyMarketDigestResponse,
+    StockCatalystRequest,
+    StockCatalystResponse,
+)
 from app.ai.schemas import StockAnalyzeRequest, StockAnalyzeResponse
+from app.ai.workflows.daily_market_digest import research_daily_market_digest
 from app.ai.workflows.stock_catalysts import research_stock_catalysts
 from app.ai.workflows.stock_analysis import analyze_stock
 
@@ -19,3 +25,9 @@ async def run_stock_analysis(request: StockAnalyzeRequest):
 async def run_stock_catalyst_research(request: StockCatalystRequest):
     """Run the Catalyst Research Agent workflow inside the AI service."""
     return await research_stock_catalysts(request)
+
+
+@router.post("/market/digest", response_model=DailyMarketDigestResponse)
+async def run_daily_market_digest(request: DailyMarketDigestRequest):
+    """Build a daily India stock-market digest with the Market Catalyst Agent."""
+    return await research_daily_market_digest(request)

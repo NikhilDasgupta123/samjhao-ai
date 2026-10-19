@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes.health import router as health_router
+from app.api.routes.market_routes import router as market_router
 from app.api.routes.stock_routes import router as stocks_router
 from app.core.settings import settings
 from app.ai.errors import AIServiceError
@@ -53,6 +54,7 @@ app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(stocks_router)
+app.include_router(market_router)
 
 
 @app.exception_handler(AIServiceError)

@@ -21,3 +21,12 @@ export function getStockCatalysts({ symbol, companyName, refresh = false, signal
     signal,
   });
 }
+
+export function getDailyMarketDigest({ refresh = false, signal } = {}) {
+  return requestJson("/api/market/digest", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh }),
+    signal,
+  });
+}

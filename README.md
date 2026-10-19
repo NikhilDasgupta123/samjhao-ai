@@ -12,6 +12,7 @@ MarketBrief AI brings market snapshots, historical price charts, stock research,
 - **Stock charts:** View daily stock history as a line, area, or candlestick chart. Candlesticks use NSE open, high, low, close, and volume data.
 - **Stock Agent:** Ask a question about an NSE symbol. The Stock Agent combines verified NSE quote and history data with a typed AI research brief.
 - **Market Catalyst Agent:** Look up recent news, publicly indexed web/social results, and YouTube videos related to a stock, with source links and available preview images.
+- **Daily AI market brief:** A corner assistant automatically summarizes fresh India/NSE market news and YouTube coverage, with no prompt required.
 - **Accounts and roles:** Sign up and log in with an email or username. Admins can manage user accounts and roles.
 - **Responsive workspace:** Switch between light and charcoal themes; use the dashboard on desktop, tablet, or mobile.
 

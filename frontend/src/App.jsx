@@ -12,6 +12,7 @@ import { getStockMarketData } from "./features/market/api/marketService.js";
 import { DashboardStat } from "./features/dashboard/components/DashboardStat.jsx";
 import { MarketPreview } from "./features/landing/components/MarketPreview.jsx";
 import { MarketWatchTable } from "./features/market/components/MarketWatchTable.jsx";
+import { DailyMarketNewsWidget } from "./features/market/components/DailyMarketNewsWidget.jsx";
 import { StockMarketDataForm } from "./features/market/components/StockMarketDataForm.jsx";
 import { StockMarketDetails } from "./features/market/components/StockMarketDetails.jsx";
 
@@ -398,6 +399,8 @@ export default function App() {
           </section>
         </main>
       )}
+
+      {hasEntered && <DailyMarketNewsWidget onUnauthorized={handleMarketWatchUnauthorized} />}
 
       <footer className="site-footer">
         <span>MarketBrief AI</span>

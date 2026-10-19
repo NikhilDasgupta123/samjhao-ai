@@ -37,6 +37,7 @@ backend/
         |-- catalyst_schemas.py       Catalyst source, summary and response models
         |-- sources/                  GDELT news + DDGS web/social/video search and preview images
         |-- workflows/stock_analysis.py LangGraph flow and state
+        |-- workflows/daily_market_digest.py Cached India-market news and video digest
         |-- workflows/stock_catalysts.py Catalyst search + summary LangGraph
         |-- agents/stock_agent.py     PydanticAI Stock Agent
         |-- agents/catalyst_agent.py  PydanticAI Market Catalyst Agent

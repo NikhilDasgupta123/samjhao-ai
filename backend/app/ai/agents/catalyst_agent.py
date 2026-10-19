@@ -28,16 +28,40 @@ async def summarize_stock_catalysts(
 ) -> CatalystBrief:
     sources = [source.model_dump(mode="json") for source in [*news, *web, *videos]]
     prompt = (
+        "Research scope: one NSE-listed stock.\n"
         f"NSE symbol: {symbol}\nCompany: {company_name or 'unknown'}\n\n"
         "Available source metadata (JSON):\n"
         f"{json.dumps(sources, ensure_ascii=False, allow_nan=False)}"
     )
     result = await get_catalyst_agent().run(prompt)
+    return _filter_brief_sources(result.output, [*news, *web, *videos])
 
-    valid_ids = {source.id for source in [*news, *web, *videos]}
+
+async def summarize_daily_market_catalysts(
+    *,
+    as_of_date: str,
+    news: list[CatalystSource],
+    web: list[CatalystSource],
+    videos: list[CatalystSource],
+) -> CatalystBrief:
+    """Use the Market Catalyst Agent for the daily India-wide stock digest."""
+    all_sources = [*news, *web, *videos]
+    sources = [source.model_dump(mode="json") for source in all_sources]
+    prompt = (
+        "Research scope: India-wide daily NSE equities market digest.\n"
+        f"Digest date in India Standard Time: {as_of_date}\n\n"
+        "Available source metadata (JSON):\n"
+        f"{json.dumps(sources, ensure_ascii=False, allow_nan=False)}"
+    )
+    result = await get_catalyst_agent().run(prompt)
+    return _filter_brief_sources(result.output, all_sources)
+
+
+def _filter_brief_sources(brief: CatalystBrief, sources: list[CatalystSource]) -> CatalystBrief:
+    valid_ids = {source.id for source in sources}
     factors = [
-        factor.model_copy(update={"source_ids": [item for item in factor.source_ids if item in valid_ids]})
-        for factor in result.output.factors
+        factor.model_copy(update={"source_ids": [source_id for source_id in factor.source_ids if source_id in valid_ids]})
+        for factor in brief.factors
     ]
     factors = [factor for factor in factors if factor.source_ids]
-    return result.output.model_copy(update={"factors": factors})
+    return brief.model_copy(update={"factors": factors})

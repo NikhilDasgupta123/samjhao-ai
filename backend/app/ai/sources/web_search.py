@@ -125,25 +125,25 @@ async def _add_page_preview_images(sources: list[CatalystSource]) -> list[Cataly
     ]
 
 
-def _run_text_search(query: str, limit: int) -> list[dict[str, str]]:
+def _run_text_search(query: str, limit: int, timelimit: str = "m") -> list[dict[str, str]]:
     """Use metasearch engines and return links with any image metadata they provide."""
     return DDGS(timeout=8).text(
         query,
         region="in-en",
         safesearch="moderate",
-        timelimit="m",
+        timelimit=timelimit,
         max_results=limit,
         backend="auto",
     )
 
 
-def _run_video_search(query: str, limit: int) -> list[dict[str, object]]:
+def _run_video_search(query: str, limit: int, timelimit: str = "m") -> list[dict[str, object]]:
     """Search indexed video sources, including YouTube, for recent coverage."""
     return DDGS(timeout=8).videos(
         query,
         region="in-en",
         safesearch="moderate",
-        timelimit="m",
+        timelimit=timelimit,
         max_results=limit,
         backend="auto",
     )
@@ -193,7 +193,10 @@ def _search_stock_videos_sync(
 ) -> list[CatalystSource]:
     subject = (company_name or "").replace('"', " ").strip() or symbol
     query = f'"{subject}" {symbol} India stock news results market analysis'
-    results = _run_video_search(query, limit)
+    return _video_sources(_run_video_search(query, limit), limit)
+
+
+def _video_sources(results: list[dict[str, object]], limit: int) -> list[CatalystSource]:
     sources: list[CatalystSource] = []
     seen_urls: set[str] = set()
     for result in results:
@@ -243,12 +246,29 @@ def _search_stock_web_sync(
     web_query = f'"{subject}" {symbol} India {_MARKET_TERMS}'
     social_sites = " OR ".join(f"site:{domain}" for domain in _SOCIAL_DOMAINS)
     social_query = f'"{subject}" {symbol} India stock ({social_sites})'
+    return _search_web_queries_sync(web_query, social_query, limit, timelimit="m")
+
+
+def _search_india_market_web_sync(limit: int) -> list[CatalystSource]:
+    market_terms = '(NSE OR Nifty OR Sensex) (India OR Indian) (stocks OR shares OR market OR earnings OR results)'
+    social_sites = " OR ".join(f"site:{domain}" for domain in _SOCIAL_DOMAINS)
+    social_query = f'(NSE OR Nifty OR Sensex) India stock market ({social_sites})'
+    return _search_web_queries_sync(market_terms, social_query, limit, timelimit="d")
+
+
+def _search_web_queries_sync(
+    web_query: str,
+    social_query: str,
+    limit: int,
+    *,
+    timelimit: str,
+) -> list[CatalystSource]:
 
     # Search broad web pages and public social posts independently so a noisy
     # platform-specific query cannot hide relevant blogs or community posts.
     with ThreadPoolExecutor(max_workers=2) as executor:
-        web_future = executor.submit(_run_text_search, web_query, limit)
-        social_future = executor.submit(_run_text_search, social_query, limit)
+        web_future = executor.submit(_run_text_search, web_query, limit, timelimit)
+        social_future = executor.submit(_run_text_search, social_query, limit, timelimit)
         web_results: list[dict[str, str]] = []
         social_results: list[dict[str, str]] = []
         failures = []
@@ -318,3 +338,20 @@ async def search_stock_videos(
 ) -> list[CatalystSource]:
     """Return recent stock-related video links and thumbnails."""
     return await asyncio.to_thread(_search_stock_videos_sync, symbol, company_name, limit)
+
+
+async def search_india_market_web(*, limit: int = 8) -> list[CatalystSource]:
+    """Return daily India-wide market web and public social coverage."""
+    sources = await asyncio.to_thread(_search_india_market_web_sync, limit)
+    return await _add_page_preview_images(sources)
+
+
+async def search_india_market_videos(*, limit: int = 6) -> list[CatalystSource]:
+    """Return recent YouTube videos, widening to a week if today's search is empty."""
+    query = "India stock market today NSE Nifty Sensex Indian stocks daily news analysis"
+    results = await asyncio.to_thread(_run_video_search, query, limit, "d")
+    videos = _video_sources(results, limit)
+    if videos:
+        return videos
+    weekly_results = await asyncio.to_thread(_run_video_search, query, limit, "w")
+    return _video_sources(weekly_results, limit)
