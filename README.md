@@ -178,7 +178,7 @@ marketbrief-ai/
 │       │   ├── models/            # Cloudflare Workers AI client
 │       │   ├── prompts/           # Agent instructions
 │       │   ├── sources/           # News and public web/social search
-│       │   └── workflows/         # LangGraph analysis and catalyst flows
+│       │   └── workflows/         # Shared LangGraph, state, and workflow entry points
 │       ├── core/                  # Settings and terminal flow logs
 │       └── stocks/
 │           ├── data/              # Market data service and NSE MCP tools

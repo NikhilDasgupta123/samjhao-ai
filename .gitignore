@@ -153,6 +153,7 @@ activemq-data/
 .env
 .envrc
 .venv
+backend/.langgraph_api/
 env/
 venv/
 ENV/

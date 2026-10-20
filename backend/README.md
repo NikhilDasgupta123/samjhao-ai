@@ -36,9 +36,11 @@ backend/
         |-- schemas.py | errors.py    Stock analysis types and AI errors
         |-- catalyst_schemas.py       Catalyst source, summary and response models
         |-- sources/                  GDELT news + DDGS web/social/video search and preview images
-        |-- workflows/stock_analysis.py LangGraph flow and state
+        |-- workflows/graph.py         Shared LangGraph with stock + catalyst branches
+        |-- workflows/state.py         Shared state passed between graph nodes
+        |-- workflows/stock_analysis.py Stock-analysis entry point and response mapping
+        |-- workflows/stock_catalysts.py Catalyst entry point, cache, and response mapping
         |-- workflows/daily_market_digest.py Cached India-market news and video digest
-        |-- workflows/stock_catalysts.py Catalyst search + summary LangGraph
         |-- agents/stock_agent.py     PydanticAI Stock Agent
         |-- agents/catalyst_agent.py  PydanticAI Market Catalyst Agent
         |-- models/cloudflare.py      Cloudflare Workers AI connection
@@ -54,17 +56,16 @@ POST /api/stocks/analyze
 
 AI SERVICE | port 8001
     -> ai_service/routes.py
-    -> app/ai/workflows/stock_analysis.py
-    -> app/stocks/data/market_data_service.py
-    -> app/stocks/data/nse_mcp_server.py -> jugaad-data / NSE
-    -> app/ai/agents/stock_agent.py -> app/ai/models/cloudflare.py
+    -> app/ai/workflows/stock_analysis.py -> shared LangGraph stock branch
+    -> fetch_market_data node -> NSE MCP tools
+    -> stock_agent node -> app/ai/agents/stock_agent.py -> Cloudflare Workers AI
     -> StockResearchBrief -> public API response
 
 POST /api/stocks/catalysts
     -> API forwards to POST /internal/stocks/catalysts
-    -> app/ai/workflows/stock_catalysts.py
-    -> GDELT news + DDGS public web/social/YouTube search (in parallel)
-    -> Market Catalyst Agent summarizes source titles with source IDs
+    -> app/ai/workflows/stock_catalysts.py -> shared LangGraph catalyst branch
+    -> search_sources node: GDELT news + DDGS web/social/video (in parallel)
+    -> catalyst_agent node: Market Catalyst Agent summarizes source titles with source IDs
     -> source links + possible factors -> frontend stock details
 ```
 
@@ -86,6 +87,17 @@ cd backend
 python -m uvicorn ai_service.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
+### View the graph in LangSmith Studio (local development)
+
+From `backend/`, install the LangGraph development CLI and start the local server:
+
+```bash
+pip install "langgraph-cli[inmem]"
+langgraph dev
+```
+
+Open the Studio URL printed by the command and select `samjhao_workflow`. To run a branch, enter `task` and `symbol`, for example `{"task":"stock_analysis","symbol":"RELIANCE"}` or `{"task":"catalysts","symbol":"RELIANCE"}`. To run the AI nodes, copy `.env.example` to `.env` and add the Cloudflare credentials. The graph server itself runs locally; this does not deploy the app.
+
 The analysis request waits for the AI result. LangGraph, NSE fetches, and Cloudflare calls run in the separate AI process, so that work does not execute inside the public API process. The API uses an async HTTP call while it waits, so it can continue serving other requests. Terminal 2 shows the LangGraph routing boxes. Both processes still share the machine, so CPU or memory pressure can affect both. For an immediate response while analysis continues in the background, add a job queue and return a job ID (202 Accepted).
 
 Catalyst searches run only when a user opens a company's full details, not for all 500 companies at once. Results are cached in the AI process for 15 minutes. News, web, and YouTube searches target recent results from the past 30 days so dated sources can align with the price chart. The web search uses the open-source DDGS metasearch library to search publicly indexed pages, blogs, social posts, and videos; social searches include X/Twitter, Facebook, Reddit, Stocktwits, LinkedIn, Threads, Instagram, and Telegram. Private, login-only, and non-indexed posts are unavailable. The summary uses headlines, video titles, and search-result snippets rather than verified full pages or videos, so displayed factors are possible coverage, not confirmed causes of price changes.
@@ -97,8 +109,9 @@ AI HTTP service    -> ai_service/
 Login and roles    -> auth/
 NSE tools          -> app/stocks/data/nse_mcp_server.py
 Quote and cache    -> app/stocks/data/market_data_service.py
-AI workflow       -> app/ai/workflows/stock_analysis.py
-AI agent           -> app/ai/agents/stock_agent.py
+AI graph/state     -> app/ai/workflows/graph.py + state.py
+Workflow adapters  -> app/ai/workflows/stock_analysis.py + stock_catalysts.py
+AI agents          -> app/ai/agents/
 Cloudflare model   -> app/ai/models/cloudflare.py
 ```
 

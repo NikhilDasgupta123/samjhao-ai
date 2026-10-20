@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "samjhao_workflow": "./app/ai/workflows/graph.py:studio_graph"
+  },
+  "env": ".env"
+}
